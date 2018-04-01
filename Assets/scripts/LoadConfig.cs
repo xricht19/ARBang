@@ -14,14 +14,13 @@ namespace LoadConfig
     {
 
         public Button startButton;
-        public GameObject gameControl;
 
         private void Awake()
         {
             // check if we already have Game Control object, instantiate it otherwise
             if (GameControl.GameControl.gameControl == null)
             {
-                Instantiate(gameControl);
+                Instantiate(GameControl.GameControl.gameControl);
             }
         }
 

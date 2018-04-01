@@ -16,17 +16,12 @@ namespace GameControl
         public LoadConfig.ARBang gameConfig;
 
         // game config -> set before start of game
-        public ushort cameraId;
+        private int _cameraId = 0;
+        public ushort CameraIdUnsignedShort = 0;
 
-
-        // all these should be only for INGAME scene
-            // game state machine
-            //public ARBangStateMachine gameState;
-            // augmented reality effects control
-
-
-        // name of camera - cannot be serialized
-        public string cameraName;
+        // settert and getters
+        public void SetCameraId(int value) { _cameraId = value; CameraIdUnsignedShort = Convert.ToUInt16(value); }
+        public int GetCameraId() { return _cameraId; }
 
         // check if the GameControl already exists, create it otherwise
         void Awake()
@@ -50,7 +45,7 @@ namespace GameControl
             FileStream file = File.Create(Application.persistentDataPath + "/gameDataSetting.dat");
 
             GameDataSettings data = new GameDataSettings();
-            data.cameraId = cameraId;
+            data.CameraId = _cameraId;
 
             bf.Serialize(file, data);
             file.Close();
@@ -67,7 +62,7 @@ namespace GameControl
 
                 file.Close();
 
-                cameraId = data.cameraId;
+                _cameraId = data.CameraId;
             }
         }
 
@@ -79,7 +74,7 @@ namespace GameControl
     [Serializable]
     class GameDataSettings
     {
-        public ushort cameraId;
+        public int CameraId;
     }
 
     public class CardAreaRect
