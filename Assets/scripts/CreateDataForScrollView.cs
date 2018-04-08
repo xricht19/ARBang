@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Runtime.InteropServices;
+using System;
 
 public class CreateDataForScrollView : MonoBehaviour {
 
@@ -22,7 +24,8 @@ public class CreateDataForScrollView : MonoBehaviour {
 
     public void ConfirmSelectionOfCamera()
     {
-        GameControl.GameControl.gameControl.SetCameraId(_currentCameraId);
+        
+       
     }
 
 
@@ -33,6 +36,7 @@ public class CreateDataForScrollView : MonoBehaviour {
         {
             foreach (GameObject item in _items)
             {
+                item.GetComponent<Button>().onClick.RemoveAllListeners();
                 Destroy(item.gameObject);
             }
             _items.Clear();
@@ -51,8 +55,10 @@ public class CreateDataForScrollView : MonoBehaviour {
                 for (int i = 0; i < _numberOfDevices; i++)
                 {
                     GameObject item = Instantiate(TextPrefab) as GameObject;
+                    item.name = i.ToString();
                     item.GetComponentInChildren<Text>().text = "Camera " + i.ToString();
                     item.transform.SetParent(ContentHolder.transform, false);
+                    item.GetComponent<Button>().onClick.AddListener(() => ChangeCamera(item.name));
 
                     _items.Add(item);
                 }
@@ -64,8 +70,19 @@ public class CreateDataForScrollView : MonoBehaviour {
 
     }
 
+    public void ChangeCamera(string cameraId)
+    {
+        // check if we already have Game Control object, instantiate it otherwise
+        if (CameraControl.CameraControl.cameraControl == null)
+        {
+            Instantiate(CameraControl.CameraControl.cameraControl);
+        }
+        CameraControl.CameraControl.cameraControl.ChangeCameraId(Convert.ToUInt16(cameraId));
+    }
+
     private void Awake()
     {
+        Application.targetFrameRate = 25;
         // check if we already have Game Control object, instantiate it otherwise
         if (CameraControl.CameraControl.cameraControl == null)
         {
@@ -73,7 +90,7 @@ public class CreateDataForScrollView : MonoBehaviour {
         }
         _numberOfDevices = CameraControl.CameraControl.cameraControl.GetNumberOfAvailableCameras();
 
-        GenerateListContent();               
+        GenerateListContent();  
     }
 
     private void Update()
@@ -85,8 +102,7 @@ public class CreateDataForScrollView : MonoBehaviour {
             {
                 Instantiate(CameraControl.CameraControl.cameraControl);
             }
-            Texture2D frame = CameraControl.CameraControl.cameraControl.GetNextFrameAsImage();
-            //frame.Resize((int)ImagePlane.rectTransform.rect.width, (int)ImagePlane.rectTransform.rect.height);
+            Texture2D frame = CameraControl.CameraControl.cameraControl.GetNextFrameAsImage(); 
             ImagePlane.texture = frame;
             (ImagePlane.texture as Texture2D).Apply();
         }

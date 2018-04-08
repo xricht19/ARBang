@@ -44,7 +44,11 @@ namespace CameraControl
         private bool _isTableInitialized = false;
         private bool _memoryAllocated = false;
         private ushort cols = 0, rows = 0, channels = 0;
+        private ushort _cameraId = 0;
         private IntPtr dataPointer;
+        private Texture2D tex;
+        private Color32[] pixel32;
+        private GCHandle pixelHandle;
 
         /// <summary>
         /// Function return true if the error occured in image processing part.
@@ -56,6 +60,9 @@ namespace CameraControl
         public void SetCameraInitialized(bool value) { _isCameraInitialized = value; } 
         public bool IsTableInitialized() { return _isTableInitialized; }
         public void SetTableInitialized(bool value) { _isTableInitialized = value; }
+
+        public void SetCameraId(ushort newId) { _cameraId = newId; }
+        public ushort GetCameraId() { return _cameraId; }
 
 
         // constructor
@@ -85,7 +92,22 @@ namespace CameraControl
             {
                 Debug.Log("Destroing");
                 DestroyImageDetectionAccessPoint(pImageDetectionAccessPoint);
-                pImageDetectionAccessPoint = IntPtr.Zero;
+                pImageDetectionAccessPoint = IntPtr.Zero;                
+            }
+            if (_memoryAllocated)
+                //Marshal.FreeHGlobal(dataPointer);
+                pixelHandle.Free();
+        }
+        /// <summary>
+        /// Change current camera stream in ImageDetectionAccessPoint
+        /// </summary>
+        /// <param name="newId">Id of new camera.</param>
+        public void ChangeCameraId(int newId)
+        {
+            if (newId != Convert.ToInt32(GetCameraId()))
+            {
+                SetCameraId(Convert.ToUInt16(newId));
+                InitCameraControlForCameraChange();
             }
         }
 
@@ -101,7 +123,7 @@ namespace CameraControl
                 unsafe
                 {
                     GetNumberOfAllAvailableDevicesCaller(pImageDetectionAccessPoint, ref _errorCode, ref numOfDevices);
-                    Debug.Log("BLAST: " + numOfDevices);
+                    Debug.Log("Number of devices: " + numOfDevices);
                 }
                 if (IsErrorOccured()) // if the error occured, set number of devices to zero, just to be sure
                 {
@@ -112,7 +134,6 @@ namespace CameraControl
             return Convert.ToInt32(numOfDevices);
         }
 
-
         public Texture2D GetNextFrameAsImage()
         {
             // check if camera is initialized, otherwise initilize it
@@ -120,7 +141,7 @@ namespace CameraControl
             {
                 unsafe
                 {
-                    InitImageDetectionAccessPointCameraCaller(pImageDetectionAccessPoint, ref _errorCode, ref GameControl.GameControl.gameControl.CameraIdUnsignedShort);
+                    InitImageDetectionAccessPointCameraCaller(pImageDetectionAccessPoint, ref _errorCode, ref _cameraId);
                 }
                 if (!IsErrorOccured())
                     SetCameraInitialized(true);
@@ -140,44 +161,43 @@ namespace CameraControl
                     {
                         GetCurrentFrameSizeCaller(pImageDetectionAccessPoint, ref _errorCode, ref cols, ref rows, ref channels);
                     }
-                    byte[] data = new byte[cols * rows * channels];
-                    dataPointer = Marshal.AllocHGlobal(data.Length);
+                    tex = new Texture2D(rows, cols, TextureFormat.RGBA32, false);
+                    pixel32 = tex.GetPixels32();
+                    //Pin pixel32 array
+                    pixelHandle = GCHandle.Alloc(pixel32, GCHandleType.Pinned);
+                    dataPointer = pixelHandle.AddrOfPinnedObject();
+                    _memoryAllocated = true;
                 }                        
                 unsafe
                 {
                     // get next frame from image
                     GetCurrentFrameDataCaller(pImageDetectionAccessPoint, ref _errorCode, ref cols, ref rows, ref channels, dataPointer);
-                    // create texture and add the image data in it
-                    Texture2D frame = new Texture2D(cols, rows);
-                    byte[] dataManaged = new byte[rows*cols*channels];
-                    Marshal.Copy(dataPointer, dataManaged, 0, rows*cols*channels);
-
-                    /*Debug.Log("Cols: " + cols);
-                    Debug.Log("Rows: " + rows);
-                    Debug.Log("Channels: " + channels);
-                    Debug.Log("Tst: " + (int)dataManaged[11]);*/
-
-                    int offset = 0;
-                    for (int i = 0; i < rows; i++)
-                    {
-                        for (int j = 0; j < cols; j++)
-                        {
-                            float r = (float)dataManaged[offset + 0] / 255.0f;
-                            float g = (float)dataManaged[offset + rows*cols] / 255.0f;
-                            float b = (float)dataManaged[offset + 2*rows*cols] / 255.0f;
-                            offset += 1;
-
-                            UnityEngine.Color color = new UnityEngine.Color(r, 0, 0, 1.0f);
-                            frame.SetPixel(j, i, color);
-                        }
-                    }
-                    return frame;
+                    //Update the Texture2D with array updated in C++
+                    tex.SetPixels32(pixel32);
+                    return tex;
                 }
             }
 
             return new Texture2D(0, 0);
 
         }
+
+        public void InitCameraControlForCameraChange()
+        {
+            // release memory if allocated
+            if(_memoryAllocated)
+            {
+                //Marshal.FreeHGlobal(dataPointer);
+                pixelHandle.Free();
+                _memoryAllocated = false;
+            }
+
+            _errorCode = 0;
+            _isCameraInitialized = false;
+            cols = 0;
+            rows = 0;
+            channels = 0;
+    }
 
         // temporary test function
         /*public void StartCapture()

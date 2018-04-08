@@ -16,12 +16,7 @@ namespace GameControl
         public LoadConfig.ARBang gameConfig;
 
         // game config -> set before start of game
-        private int _cameraId = 0;
         public ushort CameraIdUnsignedShort = 0;
-
-        // settert and getters
-        public void SetCameraId(int value) { _cameraId = value; CameraIdUnsignedShort = Convert.ToUInt16(value); }
-        public int GetCameraId() { return _cameraId; }
 
         // check if the GameControl already exists, create it otherwise
         void Awake()
@@ -45,7 +40,7 @@ namespace GameControl
             FileStream file = File.Create(Application.persistentDataPath + "/gameDataSetting.dat");
 
             GameDataSettings data = new GameDataSettings();
-            data.CameraId = _cameraId;
+            //data.CameraId = _cameraId;
 
             bf.Serialize(file, data);
             file.Close();
@@ -62,7 +57,7 @@ namespace GameControl
 
                 file.Close();
 
-                _cameraId = data.CameraId;
+                //_cameraId = data.CameraId;
             }
         }
 
