@@ -10,4 +10,9 @@ public class LoadSceneOnClick : MonoBehaviour {
         SceneManager.LoadScene(sceneIndex);
 	}
 
+    public void LoadSceneByIndexAdditive(int sceneIndex)
+    {
+        SceneManager.LoadScene(sceneIndex, LoadSceneMode.Additive);
+    }
+
 }

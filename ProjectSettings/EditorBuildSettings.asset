@@ -12,5 +12,8 @@ EditorBuildSettings:
     path: Assets/scenes/InGame.unity
     guid: 4e6efedb7f935fa47a79f1398b800b15
   - enabled: 1
-    path: Assets/scenes/GameLogicSettings.unity
+    path: Assets/scenes/GameLogicAndAreaSettings.unity
     guid: 8fd8d39273a4c2c428ebdccf1ad4d4cc
+  - enabled: 1
+    path: Assets/scenes/ChessboardScene.unity
+    guid: e771230cafe49da4fa9e2e46c4a284a9

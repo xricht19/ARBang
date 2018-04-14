@@ -21,7 +21,7 @@ GameObject:
   - component: {fileID: 4177863588538966}
   - component: {fileID: 114630095451025668}
   m_Layer: 0
-  m_Name: GameControl
+  m_Name: GameControlPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -51,5 +51,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97841fe0b8e207e49b158723fc6ad9b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cameraId: 0
-  cameraName: 
+  CameraIdUnsignedShort: 0
