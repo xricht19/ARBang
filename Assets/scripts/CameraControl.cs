@@ -21,8 +21,6 @@ namespace CameraControl
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void InitImageDetectionAccessPointDataCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, string fileName, ref ushort configTableID);
         [DllImport("ImageProcessingForARCardGames")]
-        static public extern void InitImageDetectionAccessPointROSCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, int ipAdress, ref ushort port);
-        [DllImport("ImageProcessingForARCardGames")]
         static public extern void GetVideoResolutionCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort width, ref ushort height);
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void GetNumberOfAllAvailableDevicesCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort numberOfAvailDevices);
@@ -36,6 +34,32 @@ namespace CameraControl
         static public extern void IsPlayerActiveByIDCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort playerID);
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void HasGameObjectChangedCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort positionID, ref ushort objectID);
+
+        // camera calibration IDAP        
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void SetFlipHorizontallyCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void SetFlipVerticallyCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void AddImageWithChessboardCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void IsEnoughDataCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort isEnough);
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void SetSquareDimensionCameraCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort dimension);  // dimension set in nm
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void SetChessboardDimensionCameraCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort width, ref ushort height);
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void SaveCameraCalibCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void LoadCameraCalibCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);  // error code hold the success if any
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void CalibrateCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
+        [DllImport("ImageProcessingForARCardGames")]
+        static public extern void GetCalibrationCameraImageCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort imageNumber, ref ushort width, ref ushort height, ref ushort channels, IntPtr data);
+
+        // table calibration IDAP
+
+
 
         // variables
         IntPtr pImageDetectionAccessPoint = IntPtr.Zero;
@@ -197,37 +221,152 @@ namespace CameraControl
             cols = 0;
             rows = 0;
             channels = 0;
-    }
+        }
 
-        // temporary test function
-        /*public void StartCapture()
+        public void SetHorizontalFlip()
         {
-            if (pImageDetectionAccessPoint == IntPtr.Zero)
-            {
-                Debug.Log("Trying create class");
-                unsafe
-                {
-                    pImageDetectionAccessPoint = CreateImageDetectionAccessPoint();
-                    //InitImageDetectionAccessPointCaller(pImageDetectionAccessPoint, ref errorCode, ref cameraId);
-                }
-
-            }
-
-            Debug.Log("Test started!");
-
-            print("Returned camera Id:" + cameraId);
-
             unsafe
             {
-                GetVideoResolutionCaller(pImageDetectionAccessPoint, ref errorCode, ref height, ref width);
-                Debug.Log("ErrorCode: " + errorCode);
-                Debug.Log("Width: " + width);
-                Debug.Log("Height: " + height);
+                SetFlipHorizontallyCaller(pImageDetectionAccessPoint, ref _errorCode);
             }
-            /*heightText.text = height.ToString();
-            widthText.text = width.ToString();*/
+            if(_errorCode != 0)
+            {
+                Debug.Log("Cannot flip image, error occure.");
+            }
+        }
 
-        //}
+        public void SetVerticalFlip()
+        {
+            unsafe
+            {
+                SetFlipVerticallyCaller(pImageDetectionAccessPoint, ref _errorCode);
+            }
+            if (_errorCode != 0)
+            {
+                Debug.Log("Cannot flip image, error occure.");
+            }
+        }
+        
+        public void CaptureImageForCameraCalibration()
+        {
+            // check if camera is initialized, otherwise initilize it
+            if (!IsCameraInitialized())
+            {
+                unsafe
+                {
+                    InitImageDetectionAccessPointCameraCaller(pImageDetectionAccessPoint, ref _errorCode, ref _cameraId);
+                }
+                if (!IsErrorOccured())
+                    SetCameraInitialized(true);
+                else
+                    Debug.Log("CaptureImageForCameraCalibration -> Cannot init IDAP.");
+            }
+            unsafe
+            {
+                PrepareNextFrameCaller(pImageDetectionAccessPoint, ref _errorCode);
+                if(_errorCode == 0)
+                    AddImageWithChessboardCaller(pImageDetectionAccessPoint, ref _errorCode);
+            }
+            if(_errorCode != 0)
+            {
+                Debug.Log("Cannot add image for calibration.");
+            }
+
+        }
+
+        public bool IsEnoughDataForCameraCalibration()
+        {
+            ushort isEnough = 0;
+            unsafe
+            {
+                IsEnoughDataCaller(pImageDetectionAccessPoint, ref _errorCode, ref isEnough);
+            }
+            if(_errorCode == 0)
+            {
+                return (Convert.ToBoolean(isEnough));
+            }
+            return false;
+        }
+
+        public Texture2D GetImageFromCameraCalibration(ushort imageNumber)
+        {
+            ushort cols = 0, rows = 0, channels = 0;
+            unsafe
+            {
+                // get the size of image
+                GetCurrentFrameSizeCaller(pImageDetectionAccessPoint, ref _errorCode, ref cols, ref rows, ref channels);
+            }
+            if (!IsErrorOccured())
+            {
+                tex = new Texture2D(rows, cols, TextureFormat.RGBA32, false);
+                pixel32 = tex.GetPixels32();
+                //Pin pixel32 array
+                pixelHandle = GCHandle.Alloc(pixel32, GCHandleType.Pinned);
+                IntPtr data = pixelHandle.AddrOfPinnedObject();
+                unsafe
+                {
+                    // get next frame from image
+                    GetCalibrationCameraImageCaller(pImageDetectionAccessPoint, ref _errorCode, ref imageNumber, ref cols, ref rows, ref channels, data);
+                    //Update the Texture2D with array updated in C++
+                    tex.SetPixels32(pixel32);
+                    return tex;
+                }
+            }
+            else
+            {
+                Debug.Log("GetImageFromCameraCalibration -> Cannot get image size for image!");
+                return new Texture2D(rows, cols, TextureFormat.RGBA32, false);
+            }
+        }
+
+        public bool SetSquareDimensionCameraCalibration(double size)
+        {
+            size *= 1000;
+            ushort value = Convert.ToUInt16(Math.Round(size, 0));
+            SetSquareDimensionCameraCaller(pImageDetectionAccessPoint, ref _errorCode, ref value);
+            if (IsErrorOccured())
+                return false;
+
+            return true;
+        }
+
+        public bool SetChessboardDimensionCameraCalibration(ushort width, ushort height)
+        {
+            SetChessboardDimensionCameraCaller(pImageDetectionAccessPoint, ref _errorCode, ref width, ref height);
+            if (IsErrorOccured())
+                return false;
+
+            return true;
+        }
+
+        public bool PerformCameraCalibration()
+        {
+            CalibrateCaller(pImageDetectionAccessPoint, ref _errorCode);
+            if (IsErrorOccured())
+                return false;
+            return true;
+        }
+
+        public bool SavePerformedCameraCalibrationToFile()
+        {
+            SaveCameraCalibCaller(pImageDetectionAccessPoint, ref _errorCode);
+            if (IsErrorOccured())
+                return false;
+            return true;
+        }
+
+        public bool LoadPerformedCameraCalibrationToFile()
+        {
+            LoadCameraCalibCaller(pImageDetectionAccessPoint, ref _errorCode);
+            if (IsErrorOccured())
+                return false;
+            return true;
+        }
+
+        public void AccessTest()
+        {
+            Debug.Log("Access approved!");
+        }
 
     }
 }
