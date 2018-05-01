@@ -24,8 +24,8 @@ public class CreateDataForScrollView : MonoBehaviour {
 
     public void ConfirmSelectionOfCamera()
     {
-        
-       
+        CameraControl.CameraControl.cameraControl.SetCameraChosen(true);
+        CameraControl.CameraControl.cameraControl.SetCameraId(_currentCameraId);
     }
 
 
@@ -77,7 +77,8 @@ public class CreateDataForScrollView : MonoBehaviour {
         {
             Instantiate(CameraControl.CameraControl.cameraControl);
         }
-        CameraControl.CameraControl.cameraControl.ChangeCameraId(Convert.ToUInt16(cameraId));
+        _currentCameraId = Convert.ToInt32(cameraId);
+        CameraControl.CameraControl.cameraControl.ChangeCameraId(Convert.ToUInt16(_currentCameraId));
     }
 
     private void Awake()
@@ -88,7 +89,14 @@ public class CreateDataForScrollView : MonoBehaviour {
         {
             Instantiate(CameraControl.CameraControl.cameraControl);
         }
-        _numberOfDevices = CameraControl.CameraControl.cameraControl.GetNumberOfAvailableCameras();
+        try
+        {
+            _numberOfDevices = CameraControl.CameraControl.cameraControl.GetNumberOfAvailableCameras();
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Cannot get number of available devices: " + e.Message);
+        }
 
         GenerateListContent();  
     }
