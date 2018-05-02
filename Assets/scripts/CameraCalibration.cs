@@ -100,7 +100,8 @@ public class CameraCalibration : MonoBehaviour{
 
     public void StopCapturing()
     {
-        _captureTimer.Enabled = false;
+        if(_captureTimer != null)
+            _captureTimer.Enabled = false;
         SetCapturing(false);
         Capturebutton.GetComponentInChildren<Text>().text = Constants.captureButtonText_START;
         OnDestroy();
@@ -159,8 +160,13 @@ public class CameraCalibration : MonoBehaviour{
             success = camC.SetChessboardDimensionCameraCalibration(width, height);
             if (success)
             {
-                camC.PerformCameraCalibration();
-                camC.SavePerformedCameraCalibrationToFile();
+                success = camC.PerformCameraCalibration();
+                if (success)
+                {
+                    camC.SavePerformedCameraCalibrationToFile();
+                    camC.SetCameraCalibrated(true);
+                }
+
             }
             else
             {
@@ -178,7 +184,10 @@ public class CameraCalibration : MonoBehaviour{
         if (!success)
             LoadButton.GetComponentInChildren<Text>().text = "Failed";
         else
+        {
             LoadButton.GetComponentInChildren<Text>().text = "Success";
+            CameraControl.CameraControl.cameraControl.SetCameraCalibrated(true);
+        }
     }
 
     // --------------------------- MONO BEHAVIOUR -------------------------------------------------------------

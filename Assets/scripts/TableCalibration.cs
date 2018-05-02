@@ -86,6 +86,10 @@ public class TableCalibration : MonoBehaviour {
             bool success = camControl.CalibrateProjectorUsingChessboard(ImagePlane.GetComponent<RectTransform>().rect.size.x);
             if (success)
             {
+                Vector2 size = ImagePlane.GetComponent<RectTransform>().rect.size;
+                Vector2 pos = ImagePlane.GetComponent<RectTransform>().rect.position;
+                camControl.ApplyPositionOfImagePlaneOnTablePosition(size.x, size.y, pos.x, pos.y);
+
                 _showchessboard = false;
                 _projectorCalibrated = true;
                 StatusBarText.text = "Projector calibration successful.";

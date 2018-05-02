@@ -10,9 +10,12 @@ namespace CameraControl
     public class StaticVariablesCameraControl
     {
         static public int ProjectorMatrix = 9;
+        static public int TableCornersArray = 4;
         static public ushort ChessboardWidth = 6;
         static public ushort ChessboardHeight = 9;
-        static public double ChessboardSquareToWholeChessboardSize = 300.0/3508.0; // square to whole chessboard size ratio
+        static public double ChessboardSquareToWholeChessboardSize = 300.0 / 3508.0; // square to whole chessboard size ratio
+        static public Vector2 TopLeftChessboardCorner = new Vector2((float)(582.0 / 3508.0), (float)(493.0 / 3508.0)); // distance of first top left detectable chessboard corner from begging of chessboard image (to whole chessboard ratio)
+        //static public Vector2 BottomRightChessboardCorner = new Vector2((float)(526.0 / 3508.0), (float)(486.0 / 3508.0)); // distance of first bottom right detectable chessboard corner from begging of chessboard image (to whole chessboard ratio)
     }
 
 
@@ -75,7 +78,7 @@ namespace CameraControl
         static public extern void SetChessboardDimensionProjectionCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort chessboardWidth, ref ushort chessboardHeight);
 
         [DllImport("ImageProcessingForARCardGames")]
-        static public extern void GetProjectionTranformMatrixCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort dataSizeAllocated, ref double cmInPixels, double[] dataPointer);
+        static public extern void GetProjectionTranformMatrixCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort dataSizeAllocated, ref double cmInPixels, double[] dataPointer, double[] tableSizeData);
 
 
         // variables
@@ -93,14 +96,15 @@ namespace CameraControl
         private GCHandle pixelHandle;
 
         private bool _isCameraChosen = false;
+        private bool _isCameraCalibrated = false;
 
         // table calibration variables
-        private bool _isTableInitialized = false;
+        private bool _isTableCalibrated = false;
 
         // projector calibration variables
-        private bool _isProjectorInitialized = false;
+        private bool _isProjectorCalibrated = false;
         private double[] _projectorCameraMatrix;
-        private IntPtr _projectorMatrixPointer;
+        private double[] _tableCorners;
         private double _squareInMM = 0.0;
 
 
@@ -113,8 +117,13 @@ namespace CameraControl
 
         public bool IsCameraInitialized() { return _isCameraInitialized; }
         public void SetCameraInitialized(bool value) { _isCameraInitialized = value; }
-        public bool IsTableInitialized() { return _isTableInitialized; }
-        public void SetTableInitialized(bool value) { _isTableInitialized = value; }
+        public bool IsTableCalibrated() { return _isTableCalibrated; }
+        public void SetTableCalibrated(bool value) { _isTableCalibrated = value; }
+
+        public bool IsCameraCalibrated() { return _isCameraCalibrated; }
+        public void SetCameraCalibrated(bool value) { _isCameraCalibrated = value; }
+
+        public bool IsProjectorCalibrated() { return _isProjectorCalibrated; }
 
         public void SetCameraId(ushort newId)
         {
@@ -449,6 +458,7 @@ namespace CameraControl
                 Debug.Log("Detection error.Error: " + _errorCode);
                 return false;
             }
+            _isTableCalibrated = true;
             return true;
         }
 
@@ -456,10 +466,11 @@ namespace CameraControl
         {
             ushort dataSize = Convert.ToUInt16(StaticVariablesCameraControl.ProjectorMatrix);
             _projectorCameraMatrix = new double[dataSize];
+            _tableCorners = new double[StaticVariablesCameraControl.TableCornersArray];
             unsafe
             {
                 SetChessboardDimensionProjectionCaller(pImageDetectionAccessPoint, ref _errorCode, ref StaticVariablesCameraControl.ChessboardWidth, ref StaticVariablesCameraControl.ChessboardHeight);
-                GetProjectionTranformMatrixCaller(pImageDetectionAccessPoint, ref _errorCode, ref dataSize, ref _squareInMM, _projectorCameraMatrix);
+                GetProjectionTranformMatrixCaller(pImageDetectionAccessPoint, ref _errorCode, ref dataSize, ref _squareInMM, _projectorCameraMatrix, _tableCorners);
             }
             if (IsErrorOccured())
             {
@@ -473,9 +484,28 @@ namespace CameraControl
                 {
                     Debug.Log(i + ": " + _projectorCameraMatrix[i]);
                 }
+
                 return true;
             }
             return false;
+        }
+
+
+        public void ApplyPositionOfImagePlaneOnTablePosition(float width, float height, float xPos, float yPos)
+        {
+            float deltaX = width * StaticVariablesCameraControl.TopLeftChessboardCorner.x;
+            float deltaY = height * StaticVariablesCameraControl.TopLeftChessboardCorner.y;
+
+            float chessboardCornerX = xPos + deltaX;
+            float chessboardCornerY = yPos + deltaY;
+
+            _tableCorners[0] = _tableCorners[0] + chessboardCornerX;
+            _tableCorners[0] = _tableCorners[1] + chessboardCornerY;
+
+            /*Debug.Log("Table settings: x:" + _tableCorners[0] + ", y:" + _tableCorners[1]);
+            Debug.Log("Table settings: w:" + _tableCorners[2] + ", h:" + _tableCorners[3]);*/
+
+            _isProjectorCalibrated = true;
         }
 
     }
