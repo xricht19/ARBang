@@ -38,4 +38,9 @@
         else
             _ringedList[_count++] = item;
     }
+    // return last element added to ringed list
+    public T GetLast()
+    {
+        return _ringedList[getIndex(Count)];
+    }
 }

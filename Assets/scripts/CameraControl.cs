@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Runtime.InteropServices;
 using System;
+using System.Xml;
+using System.Xml.Serialization;
 
 namespace CameraControl
 {
@@ -43,7 +45,7 @@ namespace CameraControl
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void GetCurrentFrameDataCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort cols, ref ushort rows, ref ushort channels, IntPtr dataPointer);
         [DllImport("ImageProcessingForARCardGames")]
-        static public extern void IsPlayerActiveByIDCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort playerID);
+        static public extern void IsPlayerActiveByIDCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort playerID, ref double intensity);
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void HasGameObjectChangedCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort positionID, ref ushort objectID);
 
@@ -125,6 +127,12 @@ namespace CameraControl
 
         public bool IsProjectorCalibrated() { return _isProjectorCalibrated; }
 
+        public double[] GetProjectorMatrix() { return _projectorCameraMatrix; }
+        public double GetProjectorMatrixElement(int id)
+        {
+            return _projectorCameraMatrix[id];
+        }
+
         public void SetCameraId(ushort newId)
         {
             _cameraId = newId;
@@ -169,7 +177,7 @@ namespace CameraControl
             {
                 Debug.Log("Destroing");
                 DestroyImageDetectionAccessPoint(pImageDetectionAccessPoint);
-                pImageDetectionAccessPoint = IntPtr.Zero;                
+                pImageDetectionAccessPoint = IntPtr.Zero;
             }
             if (_memoryAllocated)
                 //Marshal.FreeHGlobal(dataPointer);
@@ -247,7 +255,7 @@ namespace CameraControl
                     pixelHandle = GCHandle.Alloc(pixel32, GCHandleType.Pinned);
                     dataPointer = pixelHandle.AddrOfPinnedObject();
                     _memoryAllocated = true;
-                }                        
+                }
                 unsafe
                 {
                     // get next frame from image
@@ -273,7 +281,7 @@ namespace CameraControl
         public void InitCameraControlForCameraChange()
         {
             // release memory if allocated
-            if(_memoryAllocated)
+            if (_memoryAllocated)
             {
                 //Marshal.FreeHGlobal(dataPointer);
                 pixelHandle.Free();
@@ -293,7 +301,7 @@ namespace CameraControl
             {
                 SetFlipHorizontallyCaller(pImageDetectionAccessPoint, ref _errorCode);
             }
-            if(_errorCode != 0)
+            if (_errorCode != 0)
             {
                 Debug.Log("Cannot flip image, error occure.");
             }
@@ -310,7 +318,7 @@ namespace CameraControl
                 Debug.Log("Cannot flip image, error occure.");
             }
         }
-        
+
         public void CaptureImageForCameraCalibration()
         {
             // check if camera is initialized, otherwise initilize it
@@ -328,10 +336,10 @@ namespace CameraControl
             unsafe
             {
                 PrepareNextFrameCaller(pImageDetectionAccessPoint, ref _errorCode);
-                if(_errorCode == 0)
+                if (_errorCode == 0)
                     AddImageWithChessboardCaller(pImageDetectionAccessPoint, ref _errorCode);
             }
-            if(_errorCode != 0)
+            if (_errorCode != 0)
             {
                 Debug.Log("Cannot add image for calibration.");
             }
@@ -345,7 +353,7 @@ namespace CameraControl
             {
                 IsEnoughDataCaller(pImageDetectionAccessPoint, ref _errorCode, ref isEnough);
             }
-            if(_errorCode == 0)
+            if (_errorCode == 0)
             {
                 return (Convert.ToBoolean(isEnough));
             }
@@ -479,7 +487,7 @@ namespace CameraControl
             else
             {
                 Debug.Log("SquareInMM: " + _squareInMM);
-                Debug.Log("mmInPixel: " + _squareInMM/(chessboardWidthInPixels*StaticVariablesCameraControl.ChessboardSquareToWholeChessboardSize));
+                Debug.Log("mmInPixel: " + _squareInMM / (chessboardWidthInPixels * StaticVariablesCameraControl.ChessboardSquareToWholeChessboardSize));
                 for (int i = 0; i < dataSize; ++i)
                 {
                     Debug.Log(i + ": " + _projectorCameraMatrix[i]);
@@ -508,5 +516,27 @@ namespace CameraControl
             _isProjectorCalibrated = true;
         }
 
+
+        // ----------------------- GAME CONTROL ---------------------------------------------------------
+        public bool HasGameObjectChanged(ushort posID, ref ushort objID)
+        {
+            HasGameObjectChangedCaller(pImageDetectionAccessPoint, ref _errorCode, ref posID, ref objID);
+            if (_errorCode == 0)
+                return true;
+
+            return false;
+        }
+
+        public double IsPlayerActive(int plID)
+        {
+            ushort plIDu = Convert.ToUInt16(plID);
+            double intensity = -2.0;
+            IsPlayerActiveByIDCaller(pImageDetectionAccessPoint, ref _errorCode, ref plIDu, ref intensity);
+            if (_errorCode != 0)
+                return -1.0;
+
+            return intensity;
+
+        }
     }
 }

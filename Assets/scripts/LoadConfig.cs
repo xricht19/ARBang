@@ -1,43 +1,12 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.UI;
-
+﻿using System.Collections.Generic;
 using System.Xml;
 using System.Xml.Serialization;
 using System.IO;
 using System;
 
-namespace LoadConfig
-{
-    public class LoadConfig : MonoBehaviour
-    {
-
-        public Button startButton;
-
-        private void Awake()
-        {
-            // check if we already have Game Control object, instantiate it otherwise
-            if (GameControl.GameControl.gameControl == null)
-            {
-                Instantiate(GameControl.GameControl.gameControl);
-            }
-        }
-
-        public void LoadConfigFromXML(string path)
-        {
-            Debug.Log("XML file: " + path);
-            // load settings to ARBang class
-            GameControl.GameControl.gameControl.gameConfig = ARBang.Load(path);
-
-            // if sucessfully loaded, enable start button
-            startButton.interactable = true;
-        }
-
-    }
-
+namespace ConfigFormats
+{ 
     // ------------------- DATA FOR XML SERIALIZER -------------------
-    // hold info about area -> CentralArea, ActiveArea
     [Serializable]
     public class Area
     {
