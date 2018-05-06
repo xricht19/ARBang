@@ -10,7 +10,7 @@ namespace GameControl
 {
     public static class GameConfigDefines
     {
-        public static string ConfigPath = "ARBang/Settings0.xml";
+        public static string ConfigPath = "Assets/ARBang/Settings0.xml";
     }
 
     public class UpdateInfo
@@ -47,22 +47,33 @@ namespace GameControl
         public CameraControl.CameraControl camC = null;
 
         // data needed to check table changes
-        private List<int> _playersIDs;
+        private List<int> _playersIDs = new List<int>();
         // player ID and his cards places by IDs
-        private Dictionary<int, List<CardInfo>> _cardPosIDs;
+        private Dictionary<int, List<CardInfo>> _cardPosIDs = new Dictionary<int, List<CardInfo>>();
 
         // id which changed this table check
         private OrderedDictionary _currentlyActivePlayers;
 
+        private bool _isGameStarted = false;
+        public bool IsGameStarted() { return _isGameStarted; }
+        public void SetGameStarted() { _isGameStarted = true; }
+        public void SetGameStopped() { _isGameStarted = false; }
+
+        private bool _loadingSuccessfull = false;
+        public bool LoadingSuccessfull() { return _loadingSuccessfull; }
+
         // update for redraw
         private UpdateInfo _currentUpdate = new UpdateInfo();
         private bool _updateRedrawReady = false;
-        private List<UpdateInfo> _updateList;
+        private List<UpdateInfo> _updateList = new List<UpdateInfo>();
 
         public bool IsUpdateRedrawReady() { return _updateRedrawReady; }
         public void ResetUpdateReadrawReady() { _updateRedrawReady = false; }
         public List<UpdateInfo> GetUpdateInfoList() { return _updateList; }
         public void ClearUpdateInfoList() { _updateList.Clear(); }
+
+        private bool _redrawTableBorder = false;
+        public bool RedrawTableBorder() { return _redrawTableBorder; }
 
         // variables for Bang state machine
         private ARBangStateMachine _bangStateMachine = new ARBangStateMachine();
@@ -81,15 +92,12 @@ namespace GameControl
                 Destroy(gameObject);
             }
             // get pointer to Camera control class
-            if(CameraControl.CameraControl.cameraControl == null)
-            {
-                new CameraControl.CameraControl();
-            }
             camC = CameraControl.CameraControl.cameraControl;
         }
 
         private void AddAllForUpdate()
         {
+            Debug.Log("PlayersIDs size: " + _playersIDs.Count);
             foreach (int plID in _playersIDs)
             {
                 UpdateInfo up = new UpdateInfo
@@ -97,11 +105,18 @@ namespace GameControl
                     State = ARBangStateMachine.BangState.BASE,
                     PlayerID = plID
                 };
-                foreach (CardInfo cardID in _cardPosIDs[plID])
+                if (_cardPosIDs.ContainsKey(plID))
                 {
-                    up.CardId = cardID.CardID;
-                    up.CardType = cardID.CardType;
-                    _updateList.Add(up);
+                    foreach (CardInfo cardID in _cardPosIDs[plID])
+                    {
+                        up.CardId = cardID.CardID;
+                        up.CardType = cardID.CardType;
+                        _updateList.Add(up);
+                    }
+                }
+                else
+                {
+                    Debug.Log("Some player does not have defined any card places.");
                 }
                 
             }
@@ -115,18 +130,23 @@ namespace GameControl
         /// </summary>
         private void Start()
         {
+            bool success = camC.InitDataAndDetectionForGame();
+            if (success)
+                _loadingSuccessfull = true;
+
             gameConfig = ConfigFormats.ARBang.Load(GameConfigDefines.ConfigPath);
             // get players IDs to check for active areas
             ConfigFormats.Player pl = gameConfig.TblSettings.PlayersArray.GetNextPlayer();
             while(pl != null)
             {
                 _playersIDs.Add(pl.Id);
+                pl = gameConfig.TblSettings.PlayersArray.GetNextPlayer();
             }
             foreach(ConfigFormats.Card item in gameConfig.TblSettings.CardsPositon)
             {
                 int key = item.PlayerId;
                 List<CardInfo> value;
-                if (_cardPosIDs[key] == null)
+                if(!_cardPosIDs.ContainsKey(key))
                     value = new List<CardInfo>();
                 else
                     value = _cardPosIDs[key];
@@ -135,6 +155,7 @@ namespace GameControl
                 _cardPosIDs[key] = value;
             }
             AddAllForUpdate();
+            SetGameStarted();
         }
 
         /// <summary>
@@ -143,55 +164,60 @@ namespace GameControl
         /// </summary>
         private void Update()
         {
-            // check which player is currently most active
-            foreach(int plID in _playersIDs)
+            if ((camC.IsCameraCalibrated() && camC.IsCameraChosen() && camC.IsTableCalibrated() && camC.IsProjectorCalibrated())
+                && IsGameStarted() && LoadingSuccessfull())
             {
-                double intensity = camC.IsPlayerActive(plID);
-                if(intensity >= _currentUpdate.PlayerIntensity)
-                {
-                    _currentUpdate.PlayerIntensity = intensity;
-                    _currentUpdate.PlayerID = plID;
-                }
-            }
-            // if no one active, use the last one detected
-            _currentUpdate.PlayerID = _bangStateMachine.GetLastActivePlayerID();
 
-            // check all possible card places
-            foreach(KeyValuePair<int, List<CardInfo>> item in _cardPosIDs)
-            {
-                foreach(CardInfo entry in item.Value)
+                // check which player is currently most active
+                foreach (int plID in _playersIDs)
                 {
-                    ushort cardIDnew = entry.CardID;
-                    camC.HasGameObjectChanged(entry.CardID, ref cardIDnew);
-                    // if card has changed, set for redraw update and update game state
-                    if(cardIDnew != Convert.ToUInt16(entry.CardID))
+                    double intensity = camC.IsPlayerActive(plID);
+                    if (intensity >= _currentUpdate.PlayerIntensity)
                     {
-                        //_currentUpdate.CardPosID.Add(entry.CardID, (ARBangStateMachine.BangCard)cardIDnew);
-                        _currentUpdate.CardId = entry.CardID;
-                        _currentUpdate.CardType = (ARBangStateMachine.BangCard)cardIDnew;
-                        // TO-DO: Update game state in ARBangStateMachine 
-
-                        // Get new state from state machine and put for redraw update
-                        _currentUpdate.State = ARBangStateMachine.BangState.BASE;
-                        // card has change add it to redraw; TO-DO: What if the player is currently unknown? -> Maybe use the previously active.
-                        _updateList.Add(_currentUpdate);
+                        _currentUpdate.PlayerIntensity = intensity;
+                        _currentUpdate.PlayerID = plID;
                     }
                 }
+                // if no one active, use the last one detected
+                _currentUpdate.PlayerID = _bangStateMachine.GetLastActivePlayerID();
+
+                // check all possible card places
+                /*foreach (KeyValuePair<int, List<CardInfo>> item in _cardPosIDs)
+                {
+                    foreach (CardInfo entry in item.Value)
+                    {
+                        ushort cardIDnew = entry.CardID;
+                        camC.HasGameObjectChanged(entry.CardID, ref cardIDnew);
+                        // if card has changed, set for redraw update and update game state
+                        if (cardIDnew != Convert.ToUInt16(entry.CardID))
+                        {
+                            //_currentUpdate.CardPosID.Add(entry.CardID, (ARBangStateMachine.BangCard)cardIDnew);
+                            _currentUpdate.CardId = entry.CardID;
+                            _currentUpdate.CardType = (ARBangStateMachine.BangCard)cardIDnew;
+                            // TO-DO: Update game state in ARBangStateMachine 
+
+                            // Get new state from state machine and put for redraw update
+                            _currentUpdate.State = ARBangStateMachine.BangState.BASE;
+                            // card has change add it to redraw; TO-DO: What if the player is currently unknown? -> Maybe use the previously active.
+                            _updateList.Add(_currentUpdate);
+                        }
+                    }
+                }*/
+
+                Debug.Log("Items needs update: " + _updateList.Count + "PlayerActive: " + _currentUpdate.PlayerID);
+
+                if (_updateList.Count > 0)
+                {
+                    _updateRedrawReady = true;
+                }
+
+                // prepare for next check
+                _currentUpdate.PlayerID = -1;
+                _currentUpdate.PlayerIntensity = 0.0;
+                _currentUpdate.CardId = -1;
+                _currentUpdate.CardType = ARBangStateMachine.BangCard.NONE;
+                _currentUpdate.State = ARBangStateMachine.BangState.UNKNOWN;
             }
-
-            Debug.Log("Items needs update: " + _updateList.Count + "PlayerActive: " + _currentUpdate.PlayerID);           
-
-            if(_updateList.Count > 0)
-            {
-                _updateRedrawReady = true;
-            }
-
-            // prepare for next check
-            _currentUpdate.PlayerID = -1;
-            _currentUpdate.PlayerIntensity = 0.0;
-            _currentUpdate.CardId = -1;
-            _currentUpdate.CardType = ARBangStateMachine.BangCard.NONE;        
-            _currentUpdate.State = ARBangStateMachine.BangState.UNKNOWN;
         }
 
         /* // saves data setting to file

@@ -1337,7 +1337,7 @@ MonoBehaviour:
       m_Calls: []
     m_TypeName: UnityEngine.UI.MaskableGraphic+CullStateChangedEvent, UnityEngine.UI,
       Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-  m_Texture: {fileID: 0}
+  m_Texture: {fileID: 2800000, guid: 5c5a1978261c9b849ae7a410996d46b6, type: 3}
   m_UVRect:
     serializedVersion: 2
     x: 0
@@ -3668,6 +3668,17 @@ MonoBehaviour:
       - m_Target: {fileID: 1692085733}
         m_MethodName: SetActive
         m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 0}
+        m_MethodName: SetGameStarted
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -6627,48 +6638,6 @@ CanvasRenderer:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1431361806}
---- !u!1001 &1446910444
-Prefab:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_LocalPosition.x
-      value: 473
-      objectReference: {fileID: 0}
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_LocalPosition.y
-      value: 266
-      objectReference: {fileID: 0}
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4177863588538966, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-      propertyPath: m_RootOrder
-      value: 3
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-  m_ParentPrefab: {fileID: 100100000, guid: c13e0db694c3eee4896ede45ca3191a3, type: 2}
-  m_IsPrefabParent: 0
 --- !u!1 &1471098916
 GameObject:
   m_ObjectHideFlags: 0
@@ -7084,7 +7053,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f4c5e9868e23a4c49be93bd889c9e45d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  startButton: {fileID: 0}
 --- !u!114 &1630022960
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7847,7 +7815,7 @@ Prefab:
       objectReference: {fileID: 0}
     - target: {fileID: 4011772486084366, guid: 768b7441932f47f47bae3d01a7798e11, type: 2}
       propertyPath: m_RootOrder
-      value: 4
+      value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: 768b7441932f47f47bae3d01a7798e11, type: 2}

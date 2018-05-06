@@ -13,8 +13,8 @@ namespace CameraControl
     {
         static public int ProjectorMatrix = 9;
         static public int TableCornersArray = 4;
-        static public ushort ChessboardWidth = 6;
-        static public ushort ChessboardHeight = 9;
+        static public ushort ChessboardWidth = 9;
+        static public ushort ChessboardHeight = 6;
         static public double ChessboardSquareToWholeChessboardSize = 300.0 / 3508.0; // square to whole chessboard size ratio
         static public Vector2 TopLeftChessboardCorner = new Vector2((float)(582.0 / 3508.0), (float)(493.0 / 3508.0)); // distance of first top left detectable chessboard corner from begging of chessboard image (to whole chessboard ratio)
         //static public Vector2 BottomRightChessboardCorner = new Vector2((float)(526.0 / 3508.0), (float)(486.0 / 3508.0)); // distance of first bottom right detectable chessboard corner from begging of chessboard image (to whole chessboard ratio)
@@ -33,7 +33,7 @@ namespace CameraControl
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void InitImageDetectionAccessPointCameraCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort cameraID);
         [DllImport("ImageProcessingForARCardGames")]
-        static public extern void InitImageDetectionAccessPointDataCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, string fileName, ref ushort configTableID);
+        static public extern void InitImageDetectionAccessPointDataAndDetectionCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort configTableID);
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void GetVideoResolutionCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort width, ref ushort height);
         [DllImport("ImageProcessingForARCardGames")]
@@ -128,10 +128,8 @@ namespace CameraControl
         public bool IsProjectorCalibrated() { return _isProjectorCalibrated; }
 
         public double[] GetProjectorMatrix() { return _projectorCameraMatrix; }
-        public double GetProjectorMatrixElement(int id)
-        {
-            return _projectorCameraMatrix[id];
-        }
+
+        public double GetTableCornersById(int id) { return _tableCorners[id]; }
 
         public void SetCameraId(ushort newId)
         {
@@ -470,8 +468,30 @@ namespace CameraControl
             return true;
         }
 
+        public bool PrepareNextImageInDetection()
+        {
+            int check = 0;
+            while (check < 5)
+            {
+                // send camera control to prepare next frame
+                PrepareNextFrameCaller(pImageDetectionAccessPoint, ref _errorCode);
+                ++check;
+            }
+            if (_errorCode == 0)
+                return true;
+
+            return false;
+        }
+
         public bool CalibrateProjectorUsingChessboard(float chessboardWidthInPixels)
         {
+            // get new image in camera, try 3 times
+            bool success = PrepareNextImageInDetection();
+            if(!success)
+            {
+                Debug.Log("Cannot get new image in chessboard detection.");
+            }
+
             ushort dataSize = Convert.ToUInt16(StaticVariablesCameraControl.ProjectorMatrix);
             _projectorCameraMatrix = new double[dataSize];
             _tableCorners = new double[StaticVariablesCameraControl.TableCornersArray];
@@ -482,7 +502,7 @@ namespace CameraControl
             }
             if (IsErrorOccured())
             {
-                Debug.Log("CalibrateProjectorUsingChessboard -> Cannot get projector transformation matrix.");
+                Debug.Log("CalibrateProjectorUsingChessboard -> Cannot get projector transformation matrix. Error: " + _errorCode);
             }
             else
             {
@@ -518,6 +538,17 @@ namespace CameraControl
 
 
         // ----------------------- GAME CONTROL ---------------------------------------------------------
+        public bool InitDataAndDetectionForGame()
+        {
+            ushort tableID = 0;
+            InitImageDetectionAccessPointDataAndDetectionCaller(pImageDetectionAccessPoint, ref _errorCode, ref tableID);
+            if (IsErrorOccured())
+                return false;
+
+            return true;
+        }
+
+
         public bool HasGameObjectChanged(ushort posID, ref ushort objID)
         {
             HasGameObjectChangedCaller(pImageDetectionAccessPoint, ref _errorCode, ref posID, ref objID);

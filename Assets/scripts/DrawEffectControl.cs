@@ -1,10 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 
 public static class PlayersColors
 {
+    public static Color Universal = new Color(204, 204, 0, 255);
     public static Color ColorPlayer1 = new Color(240, 12, 12, 255);
     public static Color ColorPlayer2 = new Color(12, 240, 12, 255);
     public static Color ColorPlayer3 = new Color(12, 12, 240, 255);
@@ -19,9 +21,18 @@ public static class PlayersColors
 /// </summary>
 public class DrawEffectControl : MonoBehaviour {
 
-    public enum Effects
+    public enum EffectsTypes
     {
+        NONE = 0,
+        GUN = 1,
+    }
 
+    private enum RectangelParts
+    {
+        TOP = 0,
+        LEFT,
+        BOTTOM,
+        RIGHT,
     }
 
     // private class to hold the current status of elements ----------------------------------------------------------------------------------------
@@ -33,6 +44,10 @@ public class DrawEffectControl : MonoBehaviour {
         private Color _color = new Color(125,125,125,255);
         private int _borderWidth = 1;
         private bool _isFilled = true;
+        private bool _readyToDraw = false;
+        private string _name = "";
+        // public variables
+        public List<GameObject> sprites;
 
         // setters and getters
         public Rect GetArea() { return _area; }
@@ -45,6 +60,10 @@ public class DrawEffectControl : MonoBehaviour {
         public int GetBorderWidth() { return _borderWidth; }
         public void SetFilled(bool value) { _isFilled = value; }
         public bool IsFilled() { return _isFilled; }
+        public void SetReadyToDraw(bool value) { _readyToDraw = value; }
+        public bool IsReadyToDraw() { return _readyToDraw; }
+        public void SetName(string value) { _name = value; }
+        public string GetName() { return _name; }
     }
 
     /// <summary>
@@ -110,7 +129,7 @@ public class DrawEffectControl : MonoBehaviour {
     private class EffectArea : BaseArea
     {
         private bool _effectShown = false;
-        private  _effectType
+        private EffectsTypes _effectType = EffectsTypes.NONE;
     }
 
     // private variables ---------------------------------------------------------------------------------------------------------------------------
@@ -122,20 +141,18 @@ public class DrawEffectControl : MonoBehaviour {
     private float _tableWidth;
     private float _tableHeight;
     // elements settings
-    private SortedDictionary<int, CardArea> cards;
-    private SortedDictionary<int, PlayerArea> players;
-    private SortedDictionary<int, >
+    private BaseArea tableBorder;
+    private SortedDictionary<int, CardArea> cards = new SortedDictionary<int, CardArea>();
+    private SortedDictionary<int, PlayerArea> players = new SortedDictionary<int, PlayerArea>();
+    private SortedDictionary<int, EffectArea> effectAreas = new SortedDictionary<int, EffectArea>();
 
 
-    // ---------------------- TEST --------------------------------------------------------------------------
- /*   public Texture2D tex;
-    private Sprite mySprite;
-    private SpriteRenderer sr;
-    private List<GameObject> sprites;
+    // ---------------------- SPRITES AND MODELS --------------------------------------------------------------------
+    public Sprite BorderUnit;
 
     void Awake()
     {
-        sprites = new List<GameObject>();
+        /*sprites = new List<GameObject>();
         for (var a = 0; a < 3; a++)
         {
             GameObject temp = new GameObject("sprite" + a.ToString());
@@ -147,25 +164,13 @@ public class DrawEffectControl : MonoBehaviour {
             Vector3 currentScale = temp.transform.localScale;
             temp.transform.localScale = new Vector3(5,currentScale.y,currentScale.z);
             sprites.Add(temp);
-        }
-        // create camera control if not exist, but it should so this is just for testing
-        if (CameraControl.CameraControl.cameraControl == null)
-        {
-            new CameraControl.CameraControl();
-        }
-        camC = CameraControl.CameraControl.cameraControl;
-        // copy the data about table to local class variable
-        _tableX = (float)camC.GetProjectorMatrixElement(0);
-        _tableY = (float)camC.GetProjectorMatrixElement(1);
-        _tableWidth = (float)camC.GetProjectorMatrixElement(2);
-        _tableHeight = (float)camC.GetProjectorMatrixElement(3);
+        }*/
 
-        // create Game control if not exist
-        if (GameControl.GameControl.gameControl == null)
-        {
-            new GameControl.GameControl();
-        }
-        gamC = GameControl.GameControl.gameControl;        
+        // copy the data about table to local class variable
+        _tableX = (float)camC.GetTableCornersById(0);
+        _tableY = (float)camC.GetTableCornersById(1);
+        _tableWidth = (float)camC.GetTableCornersById(2);
+        _tableHeight = (float)camC.GetTableCornersById(3);     
     }
 
     // in start function the sprites for player areas and cards should be created, we can use 
@@ -173,31 +178,87 @@ public class DrawEffectControl : MonoBehaviour {
     // - one sprite for each card size
     public void Start()
     {
-        mySprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
-    }*/
+        camC = CameraControl.CameraControl.cameraControl;
+        gamC = GameControl.GameControl.gameControl;
+    }
 
     /// <summary>
     /// Function check if some components need update redraw. If yes, the redraw is performed.
     /// </summary>
     public void Update()
     {
+        // draw table borders
+        if(gamC.RedrawTableBorder())
+        {
+            if(tableBorder.IsReadyToDraw())
+            {
+                // draw
+            }
+            else // create the sprite for table border
+            {
+                tableBorder = new BaseArea();
+                tableBorder.SetColor(PlayersColors.Universal);
+                tableBorder.SetBorderWidth(1);
+                tableBorder.SetFilled(false);
+                tableBorder.SetArea(new Rect(_tableX, _tableY, _tableWidth, _tableHeight));
+                CreateRectangle(ref tableBorder);
+            }
+        }
+
         // get all things that need update, if any and perform update
         if(gamC.IsUpdateRedrawReady())
         {
+            Debug.Log("Update drawing!");
             foreach(GameControl.UpdateInfo item in gamC.GetUpdateInfoList())
             {
                 // check if the item to update exist, otherwise create info for it from settings
                 if(!cards.ContainsKey(item.CardId))
                 {
-
+                    // add 
                 }
-                if()
+                // according to state, draw effect
             }
             // finally clear the list to update, everything was updated
             gamC.ClearUpdateInfoList();
             gamC.ResetUpdateReadrawReady();              
         }
+
+        // continue drawing effects from previous redraw update -> What if detection is too slow and update need to be called regulary for animations?
+
     }
+
+    private List<GameObject> CreateRectangle(ref BaseArea info)
+    {
+        List<GameObject> rect = new List<GameObject>();
+
+        for(int i = 0; i < 4; ++i)
+        {
+            string name = info.GetName() + Convert.ToString(i);
+            info.sprites.Add(CreateRectanglePart(name, info.GetArea(), info.GetColor(), (RectangelParts)i));
+        }
+        // if filled create one more sprite with alpha 125
+        if(info.IsFilled())
+        {
+            
+        }
+
+        return rect;
+    }
+
+
+    private GameObject CreateRectanglePart(string name, Rect area, Color col, RectangelParts partType)
+    {
+        GameObject temp = new GameObject("sprite" + name);
+        temp.transform.SetParent(this.transform);
+        temp.AddComponent<SpriteRenderer>();
+        temp.GetComponent<SpriteRenderer>().color = col;
+        temp.GetComponent<SpriteRenderer>().sortingLayerName = "Cards";
+        temp.transform.position = new Vector3(area.x, area.y, 0.0f);
+        Vector3 currentScale = temp.transform.localScale;
+        temp.transform.localScale = new Vector3(area.width, area.height, 1);
+        return temp;
+    }
+
 
     /// <summary>
     /// Function project the point in relative coordinates into the absolute one
