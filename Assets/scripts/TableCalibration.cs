@@ -13,11 +13,15 @@ public class TableCalibration : MonoBehaviour {
     public RawImage ImagePlane;
     public Text StatusBarText;
     public Texture2D ChessboardTexture;
+    public GameObject ChessboardSprite;
+
+    public float ChessbordWidth = 0f;
 
     private bool _markersDetected = false;
     private bool _tableCalibrated = false;
     private bool _projectorCalibrated = false;
     private CameraControl.CameraControl camControl = null;
+    
 
     private bool _showchessboard = false;
 
@@ -69,10 +73,15 @@ public class TableCalibration : MonoBehaviour {
     public void ShowChessboard()
     {
         // change size of Raw Image to keep chessboard ratio
-        float ratio = (float) ChessboardTexture.height/ChessboardTexture.width;
+        /*float ratio = (float) ChessboardTexture.height/ChessboardTexture.width;
         float newHeight = ImagePlane.GetComponent<RectTransform>().rect.size.x * ratio;
         ImagePlane.GetComponent<RectTransform>().sizeDelta = new Vector2(ImagePlane.GetComponent<RectTransform>().rect.size.x, newHeight);
-        Vector2 rawImageSize = ImagePlane.GetComponent<RectTransform>().rect.size;
+        Vector2 rawImageSize = ImagePlane.GetComponent<RectTransform>().rect.size;*/
+
+        ChessbordWidth = ChessboardSprite.GetComponent<RectTransform>().rect.size.x;
+        ChessboardSprite.SetActive(true);
+        ImagePlane.gameObject.SetActive(false);
+
         // start showing chessboard
         _showchessboard = true;
         CalibrateProjectorButton.GetComponent<Button>().interactable = true;
@@ -83,14 +92,16 @@ public class TableCalibration : MonoBehaviour {
         if (!_projectorCalibrated)
         {
             // get projection matrix
-            bool success = camControl.CalibrateProjectorUsingChessboard(ImagePlane.GetComponent<RectTransform>().rect.size.x);
+            bool success = camControl.CalibrateProjectorUsingChessboard(ChessbordWidth);
             if (success)
             {
-                Vector2 size = ImagePlane.GetComponent<RectTransform>().rect.size;
-                Vector2 pos = ImagePlane.GetComponent<RectTransform>().rect.position;
+                Vector2 size = new Vector2(0f, 0f);
+                Vector2 pos = new Vector2(0f, 0f);
                 camControl.ApplyPositionOfImagePlaneOnTablePosition(size.x, size.y, pos.x, pos.y);
-
+ 
                 _showchessboard = false;
+                ChessboardSprite.SetActive(false);
+                ImagePlane.gameObject.SetActive(true);
                 _projectorCalibrated = true;
                 StatusBarText.text = "Projector calibration successful.";
             }
@@ -119,7 +130,7 @@ public class TableCalibration : MonoBehaviour {
                 DetectMarkersButton.GetComponent<Button>().interactable = true;
                 if(_showchessboard)
                 {
-                    ImagePlane.texture = ChessboardTexture;
+                    //ImagePlane.texture = ChessboardTexture;
                     //(ImagePlane.texture as Texture2D).Apply();
                 }
                 else if (!_markersDetected || _tableCalibrated)

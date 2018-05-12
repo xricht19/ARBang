@@ -27,6 +27,8 @@ namespace ConfigFormats
         public int Id;
         [XmlElement("ActiveArea")]
         public Area ActiveArea;
+        [XmlElement("EffectsArea")]
+        public Area EffectsArea;
     }
 
     [Serializable]
@@ -78,6 +80,16 @@ namespace ConfigFormats
         [XmlArray("CardsPosition")]
         [XmlArrayItem("Card")]
         public List<Card> CardsPositon = new List<Card>();
+
+        public Card GetCardConfigByID(int id)
+        {
+            foreach(Card item in CardsPositon)
+            {
+                if (item.Id == id)
+                    return item;
+            }
+            return null;
+        }
     }
 
     [Serializable]

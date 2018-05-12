@@ -13,16 +13,27 @@ namespace GameControl
         public static string ConfigPath = "Assets/ARBang/Settings0.xml";
     }
 
+    public enum UpdatePriority
+    {
+        BASIC = 0,
+        COMMON_AREA,
+        SPECIAL
+    }
+
     public class UpdateInfo
     {
         // state is bound to player which cause it
         public int PlayerID = -1;
         public double PlayerIntensity = 0.0;
         public ARBangStateMachine.BangState State;
-        // card id + current card in that place
+        // card id + current card in that place and if the card appear or disappear
         public int CardId = -1;
         public ARBangStateMachine.BangCard CardType = ARBangStateMachine.BangCard.NONE;
-        //public Dictionary<int, ARBangStateMachine.BangCard> CardPosID = new Dictionary<int, ARBangStateMachine.BangCard>();        
+        public bool Appear = false;
+        // effect type to draw
+        public DrawEffectControl.EffectsTypes effect = DrawEffectControl.EffectsTypes.NONE;
+        // update priority -> some updates must always be visible until ends, bigger higher
+        public UpdatePriority Priority = UpdatePriority.BASIC;
     }
 
     public class GameControl : MonoBehaviour
@@ -52,7 +63,8 @@ namespace GameControl
         private Dictionary<int, List<CardInfo>> _cardPosIDs = new Dictionary<int, List<CardInfo>>();
 
         // id which changed this table check
-        private OrderedDictionary _currentlyActivePlayers;
+        private OrderedDictionary _currentlyActivePlayers = new OrderedDictionary();
+        private KeyValuePair<int, double> _currentlyMostActivePlayer = new KeyValuePair<int, double>(-1, 0.0);
 
         private bool _isGameStarted = false;
         public bool IsGameStarted() { return _isGameStarted; }
@@ -73,11 +85,12 @@ namespace GameControl
         public void ClearUpdateInfoList() { _updateList.Clear(); }
 
         private bool _redrawTableBorder = false;
-        public bool RedrawTableBorder() { return _redrawTableBorder; }
+        public bool DrawTableBorder() { return _redrawTableBorder; }
 
         // variables for Bang state machine
         private ARBangStateMachine _bangStateMachine = new ARBangStateMachine();
         public ARBangStateMachine GetBangStateMachine() { return _bangStateMachine; }
+
 
         // check if the GameControl already exists, create it otherwise
         void Awake()
@@ -100,25 +113,42 @@ namespace GameControl
             Debug.Log("PlayersIDs size: " + _playersIDs.Count);
             foreach (int plID in _playersIDs)
             {
-                UpdateInfo up = new UpdateInfo
+                if (plID != 0)
                 {
-                    State = ARBangStateMachine.BangState.BASE,
-                    PlayerID = plID
-                };
-                if (_cardPosIDs.ContainsKey(plID))
-                {
-                    foreach (CardInfo cardID in _cardPosIDs[plID])
+                    // draw player area
+                    UpdateInfo plBorder = new UpdateInfo
                     {
-                        up.CardId = cardID.CardID;
-                        up.CardType = cardID.CardType;
-                        _updateList.Add(up);
+                        State = ARBangStateMachine.BangState.BASE,
+                        PlayerID = plID,
+                        CardId = -1,
+                        effect = DrawEffectControl.EffectsTypes.BORDER,
+                    };
+                    _updateList.Add(plBorder);
+
+                    UpdateInfo up = new UpdateInfo
+                    {
+                        State = ARBangStateMachine.BangState.BASE,
+                        PlayerID = plID,
+                    };
+                    if (_cardPosIDs.ContainsKey(plID))
+                    {
+                        foreach (CardInfo cardID in _cardPosIDs[plID])
+                        {
+                            up.effect = DrawEffectControl.EffectsTypes.BORDER;
+                            up.CardId = cardID.CardID;
+                            up.CardType = cardID.CardType;
+                            if (up.CardType == ARBangStateMachine.BangCard.NONE)
+                                up.Appear = false;
+                            else
+                                up.Appear = true;
+                            _updateList.Add(up);
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log("Some player does not have defined any card places!");
                     }
                 }
-                else
-                {
-                    Debug.Log("Some player does not have defined any card places.");
-                }
-                
             }
             Debug.Log("Size of update info after start: " + _updateList.Count);
             // set to draw
@@ -167,47 +197,107 @@ namespace GameControl
             if ((camC.IsCameraCalibrated() && camC.IsCameraChosen() && camC.IsTableCalibrated() && camC.IsProjectorCalibrated())
                 && IsGameStarted() && LoadingSuccessfull())
             {
+                // capture next image by camera
+                camC.PrepareNextImageInDetectionOne();
 
-                // check which player is currently most active
+                // check which players are currently active
                 foreach (int plID in _playersIDs)
                 {
                     double intensity = camC.IsPlayerActive(plID);
-                    if (intensity >= _currentUpdate.PlayerIntensity)
+                    if (intensity > 0.0)
                     {
-                        _currentUpdate.PlayerIntensity = intensity;
-                        _currentUpdate.PlayerID = plID;
+                        if (intensity > _currentlyMostActivePlayer.Value)
+                        {
+                            _currentlyMostActivePlayer = new KeyValuePair<int, double>(plID, intensity);
+                        }
+                        _currentlyActivePlayers.Add(plID, intensity);
+                        Debug.Log("Player " + plID + " is active.");
                     }
                 }
-                // if no one active, use the last one detected
-                _currentUpdate.PlayerID = _bangStateMachine.GetLastActivePlayerID();
+                if(_currentlyMostActivePlayer.Key > 0)
+                    Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key);
 
-                // check all possible card places
-                /*foreach (KeyValuePair<int, List<CardInfo>> item in _cardPosIDs)
+                // check all possible card places for active players
+                foreach (KeyValuePair<int, List<CardInfo>> item in _cardPosIDs)
                 {
-                    foreach (CardInfo entry in item.Value)
+                    // check if card has changed for common area -> ID of common area is always zero
+                    if (item.Key == 0)
                     {
-                        ushort cardIDnew = entry.CardID;
-                        camC.HasGameObjectChanged(entry.CardID, ref cardIDnew);
-                        // if card has changed, set for redraw update and update game state
-                        if (cardIDnew != Convert.ToUInt16(entry.CardID))
+                        foreach (CardInfo entry in item.Value)
                         {
-                            //_currentUpdate.CardPosID.Add(entry.CardID, (ARBangStateMachine.BangCard)cardIDnew);
-                            _currentUpdate.CardId = entry.CardID;
-                            _currentUpdate.CardType = (ARBangStateMachine.BangCard)cardIDnew;
-                            // TO-DO: Update game state in ARBangStateMachine 
-
-                            // Get new state from state machine and put for redraw update
-                            _currentUpdate.State = ARBangStateMachine.BangState.BASE;
-                            // card has change add it to redraw; TO-DO: What if the player is currently unknown? -> Maybe use the previously active.
-                            _updateList.Add(_currentUpdate);
+                            ushort cardTypeNew = Convert.ToUInt16(entry.CardType);
+                            camC.IsCardChanged(entry.CardID, ref cardTypeNew);
+                            // if card has changed, set for redraw update and update game state
+                            if (cardTypeNew != Convert.ToUInt16(entry.CardType))
+                            {
+                                // apply new common data
+                                ARBangStateMachine.CommonAreaPackages currentPack = (ARBangStateMachine.CommonAreaPackages)entry.CardID;
+                                bool needImmidiateRedraw = _bangStateMachine.ApplyNewCommonData(item.Key, (ARBangStateMachine.BangCard)cardTypeNew, currentPack);
+                                if (needImmidiateRedraw)
+                                {
+                                    // create update for redraw
+                                    _currentUpdate.CardId = entry.CardID;
+                                    _currentUpdate.PlayerID = _currentlyMostActivePlayer.Key;
+                                    _currentUpdate.State = _bangStateMachine.GetState();
+                                    _currentUpdate.Priority = UpdatePriority.COMMON_AREA;
+                                    if ((ARBangStateMachine.BangCard)cardTypeNew == ARBangStateMachine.BangCard.NONE)
+                                    {
+                                        _currentUpdate.CardType = entry.CardType;
+                                        _currentUpdate.Appear = false;
+                                    }
+                                    else
+                                    { 
+                                        _currentUpdate.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
+                                        _currentUpdate.Appear = true;
+                                    }
+                                    _updateList.Add(_currentUpdate);
+                                }
+                                // finally, save new detected card
+                                entry.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
+                            }
                         }
                     }
-                }*/
-
-                Debug.Log("Items needs update: " + _updateList.Count + "PlayerActive: " + _currentUpdate.PlayerID);
+                    // check if player was active, and check his card if yes
+                    else if (_currentlyActivePlayers.Contains(item.Key))
+                    {
+                        foreach (CardInfo entry in item.Value)
+                        {
+                            ushort cardTypeNew = Convert.ToUInt16(entry.CardType);
+                            camC.IsCardChanged(entry.CardID, ref cardTypeNew);
+                            // if card has changed, set for redraw update and update game state
+                            if (cardTypeNew != Convert.ToUInt16(entry.CardType))
+                            {
+                                // apply new player data
+                                bool needImmidiateRedraw = _bangStateMachine.ApplyNewPlayerData(item.Key, (ARBangStateMachine.BangCard)cardTypeNew, entry.CardType);
+                                if (needImmidiateRedraw)
+                                {
+                                    // create update for redraw
+                                    _currentUpdate.CardId = entry.CardID;
+                                    _currentUpdate.PlayerID = item.Key;
+                                    _currentUpdate.State = _bangStateMachine.GetStateForPlayer(_currentUpdate.PlayerID);
+                                    _currentUpdate.Priority = UpdatePriority.BASIC;
+                                    if ((ARBangStateMachine.BangCard)cardTypeNew == ARBangStateMachine.BangCard.NONE)
+                                    {
+                                        _currentUpdate.CardType = entry.CardType;
+                                        _currentUpdate.Appear = false;
+                                    }
+                                    else
+                                    {
+                                        _currentUpdate.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
+                                        _currentUpdate.Appear = true;
+                                    }
+                                    _updateList.Add(_currentUpdate);
+                                }
+                                // finally, save new detected card
+                                entry.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
+                            }
+                        }
+                    }
+                }
 
                 if (_updateList.Count > 0)
                 {
+                    Debug.Log("Items needs update: " + _updateList.Count);
                     _updateRedrawReady = true;
                 }
 
@@ -217,6 +307,9 @@ namespace GameControl
                 _currentUpdate.CardId = -1;
                 _currentUpdate.CardType = ARBangStateMachine.BangCard.NONE;
                 _currentUpdate.State = ARBangStateMachine.BangState.UNKNOWN;
+
+                _currentlyActivePlayers.Clear();
+                _currentlyMostActivePlayer = new KeyValuePair<int, double>(-1, 0.0);
             }
         }
 

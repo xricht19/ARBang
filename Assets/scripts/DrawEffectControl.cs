@@ -7,6 +7,7 @@ using System;
 public static class PlayersColors
 {
     public static Color Universal = new Color(204, 204, 0, 255);
+    public static Color Marked = new Color(255, 0, 0, 255);
     public static Color ColorPlayer1 = new Color(240, 12, 12, 255);
     public static Color ColorPlayer2 = new Color(12, 240, 12, 255);
     public static Color ColorPlayer3 = new Color(12, 12, 240, 255);
@@ -14,6 +15,27 @@ public static class PlayersColors
     public static Color ColorPlayer5 = new Color(12, 240, 240, 255);
     public static Color ColorPlayer6 = new Color(240, 12, 240, 255);
     public static Color ColorPlayerDef = new Color(125, 125, 125, 255);
+
+    public static Color GetColorByID(int id = 0)
+    {
+        switch(id)
+        {
+            case 1:
+                return ColorPlayer1;
+            case 2:
+                return ColorPlayer2;
+            case 3:
+                return ColorPlayer3;
+            case 4:
+                return ColorPlayer4;
+            case 5:
+                return ColorPlayer5;
+            case 6:
+                return ColorPlayer6;
+            default:
+                return Universal;
+        }
+    }
 }
 
 /// <summary>
@@ -24,7 +46,9 @@ public class DrawEffectControl : MonoBehaviour {
     public enum EffectsTypes
     {
         NONE = 0,
-        GUN = 1,
+        BORDER,
+        BORDER_MARKED,
+        GUN,
     }
 
     private enum RectangelParts
@@ -33,6 +57,7 @@ public class DrawEffectControl : MonoBehaviour {
         LEFT,
         BOTTOM,
         RIGHT,
+        FILLING
     }
 
     // private class to hold the current status of elements ----------------------------------------------------------------------------------------
@@ -41,7 +66,7 @@ public class DrawEffectControl : MonoBehaviour {
         // private variables
         private Rect _area;
         private bool _visible = false;
-        private Color _color = new Color(125,125,125,255);
+        private Color _color = new Color(125, 125, 125, 255);
         private int _borderWidth = 1;
         private bool _isFilled = true;
         private bool _readyToDraw = false;
@@ -64,6 +89,12 @@ public class DrawEffectControl : MonoBehaviour {
         public bool IsReadyToDraw() { return _readyToDraw; }
         public void SetName(string value) { _name = value; }
         public string GetName() { return _name; }
+
+        // constructor
+        public BaseArea()
+        {
+            sprites = new List<GameObject>();
+        }
     }
 
     /// <summary>
@@ -95,35 +126,6 @@ public class DrawEffectControl : MonoBehaviour {
         // setters and getters
         public bool IsActive() { return _isActive; }
         public void SetActive(bool value) { _isActive = value; }
-
-        // constructor
-        public PlayerArea(ConfigFormats.Player data)
-        {
-            switch(data.Id)
-            {
-                case (1):
-                    SetColor(PlayersColors.ColorPlayer1);
-                    break;
-                case (2):
-                    SetColor(PlayersColors.ColorPlayer2);
-                    break;
-                case (3):
-                    SetColor(PlayersColors.ColorPlayer3);
-                    break;
-                case (4):
-                    SetColor(PlayersColors.ColorPlayer4);
-                    break;
-                case (5):
-                    SetColor(PlayersColors.ColorPlayer5);
-                    break;
-                case (6):
-                    SetColor(PlayersColors.ColorPlayer6);
-                    break;
-                default:
-                    SetColor(PlayersColors.ColorPlayerDef);
-                    break;
-            }
-        }
     }
 
     private class EffectArea : BaseArea
@@ -141,7 +143,7 @@ public class DrawEffectControl : MonoBehaviour {
     private float _tableWidth;
     private float _tableHeight;
     // elements settings
-    private BaseArea tableBorder;
+    private BaseArea tableBorder = new BaseArea();
     private SortedDictionary<int, CardArea> cards = new SortedDictionary<int, CardArea>();
     private SortedDictionary<int, PlayerArea> players = new SortedDictionary<int, PlayerArea>();
     private SortedDictionary<int, EffectArea> effectAreas = new SortedDictionary<int, EffectArea>();
@@ -150,28 +152,6 @@ public class DrawEffectControl : MonoBehaviour {
     // ---------------------- SPRITES AND MODELS --------------------------------------------------------------------
     public Sprite BorderUnit;
 
-    void Awake()
-    {
-        /*sprites = new List<GameObject>();
-        for (var a = 0; a < 3; a++)
-        {
-            GameObject temp = new GameObject("sprite" + a.ToString());
-            temp.transform.SetParent(this.transform);
-            temp.AddComponent<SpriteRenderer>();
-            temp.GetComponent<SpriteRenderer>().color = new Color(0.9f*a % 1.0f, 0.9f * a % 1.0f, 0.9f * a % 1.0f, 1.0f);
-            temp.GetComponent<SpriteRenderer>().sortingLayerName = "Cards";
-            temp.transform.position = new Vector3(1.5f+a , 1.5f+a, 0.0f+a);
-            Vector3 currentScale = temp.transform.localScale;
-            temp.transform.localScale = new Vector3(5,currentScale.y,currentScale.z);
-            sprites.Add(temp);
-        }*/
-
-        // copy the data about table to local class variable
-        _tableX = (float)camC.GetTableCornersById(0);
-        _tableY = (float)camC.GetTableCornersById(1);
-        _tableWidth = (float)camC.GetTableCornersById(2);
-        _tableHeight = (float)camC.GetTableCornersById(3);     
-    }
 
     // in start function the sprites for player areas and cards should be created, we can use 
     // - one sprite for each player area
@@ -180,6 +160,18 @@ public class DrawEffectControl : MonoBehaviour {
     {
         camC = CameraControl.CameraControl.cameraControl;
         gamC = GameControl.GameControl.gameControl;
+        // copy the data about table to local class variable
+        _tableX = (float)camC.GetTableCornersById(0);
+        _tableY = (float)camC.GetTableCornersById(1);
+        _tableWidth = (float)camC.GetTableCornersById(2);
+        _tableHeight = (float)camC.GetTableCornersById(3);
+
+        /*_tableX = 0f;
+        _tableY = 0f;
+        _tableWidth = 50f;
+        _tableHeight = 80f;*/
+        // add sprite renderer to object
+        //tableBorderObject.AddComponent<SpriteRenderer>();
     }
 
     /// <summary>
@@ -188,90 +180,229 @@ public class DrawEffectControl : MonoBehaviour {
     public void Update()
     {
         // draw table borders
-        if(gamC.RedrawTableBorder())
+        if (gamC.DrawTableBorder())
         {
-            if(tableBorder.IsReadyToDraw())
+            if (tableBorder.IsReadyToDraw())
             {
                 // draw
+                foreach (GameObject temp in tableBorder.sprites)
+                {
+                    temp.SetActive(true);
+                }
             }
             else // create the sprite for table border
             {
+                Debug.Log("Table dimensions: " + _tableX + ", " + _tableY + ", " + _tableWidth + ", " + _tableHeight);
                 tableBorder = new BaseArea();
                 tableBorder.SetColor(PlayersColors.Universal);
-                tableBorder.SetBorderWidth(1);
+                tableBorder.SetBorderWidth(10);
                 tableBorder.SetFilled(false);
                 tableBorder.SetArea(new Rect(_tableX, _tableY, _tableWidth, _tableHeight));
-                CreateRectangle(ref tableBorder);
+                CreateRectangle(tableBorder, "Default");
+                tableBorder.SetReadyToDraw(true);
             }
         }
 
         // get all things that need update, if any and perform update
-        if(gamC.IsUpdateRedrawReady())
+        if (gamC.IsUpdateRedrawReady())
         {
             Debug.Log("Update drawing!");
-            foreach(GameControl.UpdateInfo item in gamC.GetUpdateInfoList())
+            foreach (GameControl.UpdateInfo item in gamC.GetUpdateInfoList())
             {
-                // check if the item to update exist, otherwise create info for it from settings
-                if(!cards.ContainsKey(item.CardId))
+                switch (item.effect)
                 {
-                    // add 
+                    case EffectsTypes.BORDER:
+                        BoderRectangleControl(item, PlayersColors.Universal);
+                        break;
+                    case EffectsTypes.BORDER_MARKED:
+                        BoderRectangleControl(item, PlayersColors.Marked);
+                        break;
+                    case EffectsTypes.NONE:
+                    default:
+                        Debug.Log("Unknnown effect.");
+                        break;
                 }
-                // according to state, draw effect
+
             }
             // finally clear the list to update, everything was updated
             gamC.ClearUpdateInfoList();
-            gamC.ResetUpdateReadrawReady();              
+            gamC.ResetUpdateReadrawReady();
         }
 
         // continue drawing effects from previous redraw update -> What if detection is too slow and update need to be called regulary for animations?
+        // probably just control of another monobehaviour??
 
     }
 
-    private List<GameObject> CreateRectangle(ref BaseArea info)
+    private void BoderRectangleControl(GameControl.UpdateInfo updateConfig, Color val)
     {
-        List<GameObject> rect = new List<GameObject>();
+        if(updateConfig.CardId > 0)
+        {
+            Debug.Log("Creating Border for card.");
+        }
+        else
+        {
+            Debug.Log("Creating Border for player.");
+            // get info about player
+            if(players.ContainsKey(updateConfig.PlayerID))
+            {
+                // update or set active
+            }
+            else
+            {
+                // create active area for player
+                PlayerArea plArea = new PlayerArea();
+                // get configuration params
+                ConfigFormats.Player playerConf = gamC.gameConfig.TblSettings.PlayersArray.PlayerDataArray[updateConfig.PlayerID];
 
+                plArea.SetArea(RelativeToAbsolute(playerConf.ActiveArea.X, playerConf.ActiveArea.Y, playerConf.ActiveArea.Width, playerConf.ActiveArea.Height));
+                plArea.SetFilled(false);
+                plArea.SetColor(PlayersColors.Universal);
+                plArea.SetBorderWidth(10);
+                CreateRectangle(plArea, "Default");
+                plArea.SetReadyToDraw(true);
+
+                players[updateConfig.PlayerID] = plArea;
+
+                // create effects area for player
+                EffectArea efArea = new EffectArea();
+
+                efArea.SetArea(RelativeToAbsolute(playerConf.EffectsArea.X, playerConf.EffectsArea.Y, playerConf.EffectsArea.Width, playerConf.EffectsArea.Height));
+                efArea.SetFilled(false);
+                efArea.SetColor(PlayersColors.Universal);
+                efArea.SetBorderWidth(10);
+                CreateRectangle(efArea, "Default");
+                efArea.SetReadyToDraw(true);
+
+                effectAreas[updateConfig.PlayerID] = efArea;
+            }
+        }
+    }
+
+    private void UpdateCardPlace(GameControl.UpdateInfo item)
+    {
+        // check if the item to update exist, otherwise create info for it from settings
+        if (cards.ContainsKey(item.CardId))
+        {
+            // edit
+        }
+        else
+        {
+            // get config of this card area
+            ConfigFormats.Card cardConf = RelativeToAbsolute(gamC.gameConfig.TblSettings.GetCardConfigByID(item.CardId));
+            if (cardConf == null)
+            {
+                Debug.Log("Unknown card area ID! Not creating.");
+                return;
+            }
+            // create
+            CardArea cr = new CardArea();
+            cr.SetColor(PlayersColors.GetColorByID(item.PlayerID));
+            cr.SetBorderWidth(10);
+            if (item.CardType == ARBangStateMachine.BangCard.NONE)
+                cr.SetFilled(true);
+            else
+                cr.SetFilled(false);
+            cr.SetArea(new Rect(_tableX, _tableY, _tableWidth, _tableHeight));
+            CreateRectangle(cr, "Card");
+            cr.SetReadyToDraw(true);
+
+            // finally add to dictionary
+            cards[item.CardId] = cr;
+        }
+    }
+
+    private void CreateRectangle(BaseArea info, string sortingLayer)
+    {
         for(int i = 0; i < 4; ++i)
         {
             string name = info.GetName() + Convert.ToString(i);
-            info.sprites.Add(CreateRectanglePart(name, info.GetArea(), info.GetColor(), (RectangelParts)i));
+            info.sprites.Add(CreateRectanglePart(name, info.GetArea(), info.GetColor(), info.GetBorderWidth(), (RectangelParts)i, sortingLayer));
         }
         // if filled create one more sprite with alpha 125
         if(info.IsFilled())
         {
-            
+            string name = info.GetName() + Convert.ToString(5);
+            info.sprites.Add(CreateDimmedArea(name, info.GetArea(), info.GetColor(), sortingLayer));
         }
-
-        return rect;
     }
 
-
-    private GameObject CreateRectanglePart(string name, Rect area, Color col, RectangelParts partType)
+    private GameObject CreateDimmedArea(string name, Rect area, Color col, string sortingLayer)
     {
-        GameObject temp = new GameObject("sprite" + name);
-        temp.transform.SetParent(this.transform);
-        temp.AddComponent<SpriteRenderer>();
-        temp.GetComponent<SpriteRenderer>().color = col;
-        temp.GetComponent<SpriteRenderer>().sortingLayerName = "Cards";
-        temp.transform.position = new Vector3(area.x, area.y, 0.0f);
-        Vector3 currentScale = temp.transform.localScale;
-        temp.transform.localScale = new Vector3(area.width, area.height, 1);
-        return temp;
+        GameObject sprite = new GameObject("sprite" + name);
+        sprite.transform.SetParent(this.transform);
+        sprite.AddComponent<SpriteRenderer>();
+        SpriteRenderer sr = sprite.GetComponent<SpriteRenderer>();
+        sr.color = col * 0.75f;
+        sr.sortingLayerName = sortingLayer;
+        sr.sprite = BorderUnit;
+        sprite.transform.localScale = new Vector3(area.width * 9f, area.height *9f, 1f);
+        sprite.transform.position = new Vector3((area.x + area.width)/2f, (area.y + area.height)/2f, 0f);
+        return sprite;
     }
 
+    private GameObject CreateRectanglePart(string name, Rect area, Color col, int borderWidth, RectangelParts partType, string sortingLayer)
+    {
+        GameObject sprite = new GameObject("sprite" + name);
+        sprite.transform.SetParent(this.transform);
+        sprite.AddComponent<SpriteRenderer>();
+        SpriteRenderer sr = sprite.GetComponent<SpriteRenderer>();
+        sr.color = col;
+        sr.sortingLayerName = sortingLayer;
+        sr.sprite = BorderUnit;
+        switch(partType)
+        {
+            case RectangelParts.TOP:
+                sprite.transform.localScale = new Vector3(area.width * 10f, borderWidth, 1f);
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(area.width, area.x), PosByLeftTopCorner(0, area.y), 0f);                
+                break;
+            case RectangelParts.LEFT:
+                sprite.transform.localScale = new Vector3(borderWidth, area.height * 10f, 1f);
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(0, area.x), PosByLeftTopCorner(area.height, area.y), 0f);
+                break;
+            case RectangelParts.BOTTOM:
+                sprite.transform.localScale = new Vector3(area.width * 10f, borderWidth, 1f);
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(area.width, area.x), PosByLeftTopCorner(0, area.y + area.height), 0f);
+                break;
+            case RectangelParts.RIGHT:
+                sprite.transform.localScale = new Vector3(borderWidth, area.height * 10f, 1f);
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(0, area.x + area.width), PosByLeftTopCorner(area.height, area.y), 0f);
+                break;
+            case RectangelParts.FILLING:
+                break;
+        }
+        sprite.SetActive(true);
+        return sprite;
+    }
+
+    private float PosByLeftTopCorner(float size, float pos)
+    {
+        return (pos + size / 2f);
+    }
+
+    private ConfigFormats.Card RelativeToAbsolute(ConfigFormats.Card cardConf)
+    {
+        ConfigFormats.Card cc = new ConfigFormats.Card();
+        cc.PlayerId = cardConf.PlayerId;
+
+        return cc;
+    }
 
     /// <summary>
     /// Function project the point in relative coordinates into the absolute one
     /// </summary>
-    /// <param name="value"></param>
+    /// <param name="rel"></param>
     /// <returns></returns>
-    private Vector2 RelativeToAbsolute(Vector2 rel)
+    private Rect RelativeToAbsolute(float relX, float relY, float relWidth, float relHeight)
     {
-        Vector2 abs;
+        Rect abs = new Rect
+        {
+            x = (_tableWidth / 100f) * relX + _tableX,
+            y = (_tableHeight / 100f) * relY + _tableY,
+            width = (_tableWidth / 100f) * relWidth,
+            height = (_tableHeight / 100f) * relHeight
+        };
 
-        abs.x = (_tableWidth / 100f) * rel.x + _tableX;
-        abs.y = (_tableHeight / 100f) * rel.y + _tableY;
-        
         return abs;
     }
 }

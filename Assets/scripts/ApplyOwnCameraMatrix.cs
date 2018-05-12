@@ -8,17 +8,17 @@ public class ApplyOwnCameraMatrix : MonoBehaviour {
     public Matrix4x4 CalibratedProjection;
     Camera cam;
 
-    CameraControl.CameraControl camControl;
+    private CameraControl.CameraControl camControl;
 
-	// Use this for initialization
-	void Start () {
-        cam = GetComponent<Camera>();
-        if(CameraControl.CameraControl.cameraControl == null)
-        {
-            new CameraControl.CameraControl();
-        }
+
+    public void Start()
+    {
         camControl = CameraControl.CameraControl.cameraControl;
+    }
 
+    // Use this for initialization
+    public void ApplyMatrix () {
+        cam = GetComponent<Camera>();
         OriginalProjection = cam.projectionMatrix;
         CreateCameraMatrix();
         cam.projectionMatrix = CalibratedProjection;

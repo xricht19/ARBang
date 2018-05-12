@@ -47,7 +47,7 @@ namespace CameraControl
         [DllImport("ImageProcessingForARCardGames")]
         static public extern void IsPlayerActiveByIDCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort playerID, ref double intensity);
         [DllImport("ImageProcessingForARCardGames")]
-        static public extern void HasGameObjectChangedCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort positionID, ref ushort objectID);
+        static public extern void IsCardChangedByIDCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort positionID, ref ushort objectID);
 
         // camera calibration IDAP        
         [DllImport("ImageProcessingForARCardGames")]
@@ -108,6 +108,7 @@ namespace CameraControl
         private double[] _projectorCameraMatrix;
         private double[] _tableCorners;
         private double _squareInMM = 0.0;
+        private double _mmInPixels = 0.0;
 
 
         /// <summary>
@@ -145,6 +146,11 @@ namespace CameraControl
         public int GetCameraIdInt() { return _cameraIdInt; }
         public void SetCameraChosen(bool value) { _isCameraChosen = value; }
         public bool IsCameraChosen() { return _isCameraChosen; }
+
+        public float GetMMInPixels()
+        {
+            return (float)_mmInPixels;
+        }
 
 
 
@@ -468,13 +474,24 @@ namespace CameraControl
             return true;
         }
 
-        public bool PrepareNextImageInDetection()
+        public bool PrepareNextImageInDetectionOne()
+        {
+            // send camera control to prepare next frame
+            PrepareNextFrameCaller(pImageDetectionAccessPoint, ref _errorCode);
+            if (_errorCode == 0)
+                return true;
+
+            return false;
+        }
+
+        public bool PrepareNextImageInDetection(int skip = 5)
         {
             int check = 0;
-            while (check < 5)
+            while (check < skip+1)
             {
-                // send camera control to prepare next frame
-                PrepareNextFrameCaller(pImageDetectionAccessPoint, ref _errorCode);
+                bool ret = PrepareNextImageInDetectionOne();
+                if (ret == false)
+                    break;
                 ++check;
             }
             if (_errorCode == 0)
@@ -507,10 +524,16 @@ namespace CameraControl
             else
             {
                 Debug.Log("SquareInMM: " + _squareInMM);
-                Debug.Log("mmInPixel: " + _squareInMM / (chessboardWidthInPixels * StaticVariablesCameraControl.ChessboardSquareToWholeChessboardSize));
+                _mmInPixels = (chessboardWidthInPixels * StaticVariablesCameraControl.ChessboardSquareToWholeChessboardSize) / _squareInMM;
+                Debug.Log("mmInPixel: " + _mmInPixels);
                 for (int i = 0; i < dataSize; ++i)
                 {
                     Debug.Log(i + ": " + _projectorCameraMatrix[i]);
+                }
+                Debug.Log("Table corners: /n");
+                for(int i = 0; i < StaticVariablesCameraControl.TableCornersArray; ++i)
+                {
+                    Debug.Log(_tableCorners[i]);
                 }
 
                 return true;
@@ -521,17 +544,22 @@ namespace CameraControl
 
         public void ApplyPositionOfImagePlaneOnTablePosition(float width, float height, float xPos, float yPos)
         {
-            float deltaX = width * StaticVariablesCameraControl.TopLeftChessboardCorner.x;
+            /*float deltaX = width * StaticVariablesCameraControl.TopLeftChessboardCorner.x;
             float deltaY = height * StaticVariablesCameraControl.TopLeftChessboardCorner.y;
 
             float chessboardCornerX = xPos + deltaX;
-            float chessboardCornerY = yPos + deltaY;
+            float chessboardCornerY = yPos + deltaY;*/
 
-            _tableCorners[0] = _tableCorners[0] + chessboardCornerX;
-            _tableCorners[0] = _tableCorners[1] + chessboardCornerY;
+            //_tableCorners[0] = _tableCorners[0] + chessboardCornerX;
+            //_tableCorners[1] = _tableCorners[1] + chessboardCornerY;
+            //Debug.Log("Obtained table: " + _tableCorners[0] + ", " + _tableCorners[1] + ", " + _tableCorners[2] + ", " + _tableCorners[3]);
+            _tableCorners[2] = _tableCorners[2] * _mmInPixels;
+            _tableCorners[3] = _tableCorners[3] * _mmInPixels;
+            _tableCorners[0] = - _tableCorners[2] / 2f;
+            _tableCorners[1] = - _tableCorners[3] / 2f;
 
-            /*Debug.Log("Table settings: x:" + _tableCorners[0] + ", y:" + _tableCorners[1]);
-            Debug.Log("Table settings: w:" + _tableCorners[2] + ", h:" + _tableCorners[3]);*/
+            //Debug.Log("Table settings: x:" + _tableCorners[0] + ", y:" + _tableCorners[1]);
+            //Debug.Log("Table settings: w:" + _tableCorners[2] + ", h:" + _tableCorners[3]);
 
             _isProjectorCalibrated = true;
         }
@@ -549,9 +577,9 @@ namespace CameraControl
         }
 
 
-        public bool HasGameObjectChanged(ushort posID, ref ushort objID)
+        public bool IsCardChanged(ushort posID, ref ushort objID)
         {
-            HasGameObjectChangedCaller(pImageDetectionAccessPoint, ref _errorCode, ref posID, ref objID);
+            IsCardChangedByIDCaller(pImageDetectionAccessPoint, ref _errorCode, ref posID, ref objID);
             if (_errorCode == 0)
                 return true;
 
