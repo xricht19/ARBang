@@ -84,7 +84,7 @@ namespace GameControl
         public List<UpdateInfo> GetUpdateInfoList() { return _updateList; }
         public void ClearUpdateInfoList() { _updateList.Clear(); }
 
-        private bool _redrawTableBorder = false;
+        private bool _redrawTableBorder = true;
         public bool DrawTableBorder() { return _redrawTableBorder; }
 
         // variables for Bang state machine
@@ -124,30 +124,29 @@ namespace GameControl
                         effect = DrawEffectControl.EffectsTypes.BORDER,
                     };
                     _updateList.Add(plBorder);
-
-                    UpdateInfo up = new UpdateInfo
+                }
+                UpdateInfo up = new UpdateInfo
+                {
+                    State = ARBangStateMachine.BangState.BASE,
+                    PlayerID = plID,
+                };
+                if (_cardPosIDs.ContainsKey(plID))
+                {
+                    foreach (CardInfo cardID in _cardPosIDs[plID])
                     {
-                        State = ARBangStateMachine.BangState.BASE,
-                        PlayerID = plID,
-                    };
-                    if (_cardPosIDs.ContainsKey(plID))
-                    {
-                        foreach (CardInfo cardID in _cardPosIDs[plID])
-                        {
-                            up.effect = DrawEffectControl.EffectsTypes.BORDER;
-                            up.CardId = cardID.CardID;
-                            up.CardType = cardID.CardType;
-                            if (up.CardType == ARBangStateMachine.BangCard.NONE)
-                                up.Appear = false;
-                            else
-                                up.Appear = true;
-                            _updateList.Add(up);
-                        }
+                        up.effect = DrawEffectControl.EffectsTypes.BORDER;
+                        up.CardId = cardID.CardID;
+                        up.CardType = cardID.CardType;
+                        if (up.CardType == ARBangStateMachine.BangCard.NONE)
+                            up.Appear = false;
+                        else
+                            up.Appear = true;
+                        _updateList.Add(up);
                     }
-                    else
-                    {
-                        Debug.Log("Some player does not have defined any card places!");
-                    }
+                }
+                else
+                {
+                    Debug.Log("Some player does not have defined any card places!");
                 }
             }
             Debug.Log("Size of update info after start: " + _updateList.Count);
@@ -214,8 +213,10 @@ namespace GameControl
                         Debug.Log("Player " + plID + " is active.");
                     }
                 }
-                if(_currentlyMostActivePlayer.Key > 0)
+                if (_currentlyMostActivePlayer.Key > 0)
+                {
                     Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key);
+                }
 
                 // check all possible card places for active players
                 foreach (KeyValuePair<int, List<CardInfo>> item in _cardPosIDs)

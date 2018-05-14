@@ -16,7 +16,7 @@ namespace CameraControl
         static public ushort ChessboardWidth = 9;
         static public ushort ChessboardHeight = 6;
         static public double ChessboardSquareToWholeChessboardSize = 300.0 / 3508.0; // square to whole chessboard size ratio
-        static public Vector2 TopLeftChessboardCorner = new Vector2((float)(582.0 / 3508.0), (float)(493.0 / 3508.0)); // distance of first top left detectable chessboard corner from begging of chessboard image (to whole chessboard ratio)
+        static public Vector2 TopLeftChessboardCorner = new Vector2((float)(582.0 / 3508.0), (float)(493.0 / 2480)); // distance of first top left detectable chessboard corner from begging of chessboard image (to whole chessboard ratio)
         //static public Vector2 BottomRightChessboardCorner = new Vector2((float)(526.0 / 3508.0), (float)(486.0 / 3508.0)); // distance of first bottom right detectable chessboard corner from begging of chessboard image (to whole chessboard ratio)
     }
 
@@ -109,12 +109,9 @@ namespace CameraControl
         private double[] _tableCorners;
         private double _squareInMM = 0.0;
         private double _mmInPixels = 0.0;
+        private float offsetX = 0f;
+        private float offsetY = 0f;
 
-
-        /// <summary>
-        /// Function return true if the error occured in image processing part.
-        /// </summary>
-        /// <returns>True if error occured.</returns>
         public bool IsErrorOccured() { if (_errorCode == 0) return false; return true; }
         public bool IsCameraErrorOccured() { if (_errorCode > 100 || _errorCode == 0) return false; return true; }
 
@@ -152,6 +149,10 @@ namespace CameraControl
             return (float)_mmInPixels;
         }
 
+        public void SetOffsetInX(float val) { offsetX = val; }
+        public float GetOffsetInX() { return offsetX; }
+        public void SetOffsetInY(float val) { offsetY = val; }
+        public float GetOffsetInY() { return offsetY; }
 
 
         // constructor
@@ -544,22 +545,42 @@ namespace CameraControl
 
         public void ApplyPositionOfImagePlaneOnTablePosition(float width, float height, float xPos, float yPos)
         {
-            /*float deltaX = width * StaticVariablesCameraControl.TopLeftChessboardCorner.x;
+            // get size of orthographic camera
+            Camera cam = Camera.main;
+            float camHeight = 2f * cam.orthographicSize;
+            float camWidth = height * cam.aspect;
+
+            // chessboard corner coordinates
+            _tableCorners[0] *= _mmInPixels;
+            _tableCorners[1] *= _mmInPixels;
+            // table size
+            _tableCorners[2] *= _mmInPixels;
+            _tableCorners[3] *= _mmInPixels;
+            
+            // calculate offset
+            float deltaX = width * StaticVariablesCameraControl.TopLeftChessboardCorner.x;
             float deltaY = height * StaticVariablesCameraControl.TopLeftChessboardCorner.y;
+            float xTopLeft = xPos - width / 2f;
+            float yTopLeft = yPos + height / 2f;
 
-            float chessboardCornerX = xPos + deltaX;
-            float chessboardCornerY = yPos + deltaY;*/
+            float chessboardCornerX = xTopLeft + deltaX;
+            float chessboardCornerY = yTopLeft - deltaY;
 
-            //_tableCorners[0] = _tableCorners[0] + chessboardCornerX;
-            //_tableCorners[1] = _tableCorners[1] + chessboardCornerY;
-            //Debug.Log("Obtained table: " + _tableCorners[0] + ", " + _tableCorners[1] + ", " + _tableCorners[2] + ", " + _tableCorners[3]);
-            _tableCorners[2] = _tableCorners[2] * _mmInPixels;
-            _tableCorners[3] = _tableCorners[3] * _mmInPixels;
-            _tableCorners[0] = - _tableCorners[2] / 2f;
-            _tableCorners[1] = - _tableCorners[3] / 2f;
+            float chessboardCornerXFromCamera = (float)(_tableCorners[0] - _tableCorners[2] / 2f);
+            float chessboardCornerYFromCamera = -((float)(_tableCorners[1] - _tableCorners[3] / 2f));
 
-            //Debug.Log("Table settings: x:" + _tableCorners[0] + ", y:" + _tableCorners[1]);
-            //Debug.Log("Table settings: w:" + _tableCorners[2] + ", h:" + _tableCorners[3]);
+            float moveX = chessboardCornerX - chessboardCornerXFromCamera;
+            float moveY = chessboardCornerY - chessboardCornerYFromCamera;
+
+            Debug.Log("CORNER X: " + chessboardCornerX + " vs " + chessboardCornerXFromCamera);
+            Debug.Log("CORNER Y: " + chessboardCornerY + " vs " + chessboardCornerYFromCamera);
+
+            Debug.Log("OFFSETS: " + moveX + " | " + moveY);
+            Debug.Log("Table settings: x:" + _tableCorners[0] + ", y:" + _tableCorners[1]);
+            Debug.Log("Table settings: w:" + _tableCorners[2] + ", h:" + _tableCorners[3]);
+
+            SetOffsetInX(moveX);
+            SetOffsetInY(moveY);
 
             _isProjectorCalibrated = true;
         }

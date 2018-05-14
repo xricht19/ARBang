@@ -15,8 +15,9 @@ public class ARBangStateMachine
         BANG_PLAYED,
 
         // players updates states
-        HORSE_UPGRADE,
-        GUN_UPGRADE,
+        NEW_CARD_HORSE_UPGRADE,
+        NEW_CARD_GUN_UPGRADE,
+        NEW_CARD_UNKNOWN
     }
     /// <summary>
     /// All supported bang cards. It is directly connected to the names of their pattern.
@@ -113,7 +114,7 @@ public class ARBangStateMachine
 
     public BangState GetStateForPlayer(int plID)
     {
-        return BangState.HORSE_UPGRADE;
+        return BangState.NEW_CARD_UNKNOWN;
     }
 }
 

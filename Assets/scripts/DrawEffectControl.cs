@@ -6,15 +6,15 @@ using System;
 
 public static class PlayersColors
 {
-    public static Color Universal = new Color(204, 204, 0, 255);
-    public static Color Marked = new Color(255, 0, 0, 255);
-    public static Color ColorPlayer1 = new Color(240, 12, 12, 255);
-    public static Color ColorPlayer2 = new Color(12, 240, 12, 255);
-    public static Color ColorPlayer3 = new Color(12, 12, 240, 255);
-    public static Color ColorPlayer4 = new Color(240, 240, 12, 255);
-    public static Color ColorPlayer5 = new Color(12, 240, 240, 255);
-    public static Color ColorPlayer6 = new Color(240, 12, 240, 255);
-    public static Color ColorPlayerDef = new Color(125, 125, 125, 255);
+    public static Color32 Universal = new Color32(204, 204, 0, 255);
+    public static Color32 Marked = new Color32(255, 0, 0, 255);
+    public static Color32 ColorPlayer1 = new Color32(240, 12, 12, 255);
+    public static Color32 ColorPlayer2 = new Color32(12, 240, 12, 255);
+    public static Color32 ColorPlayer3 = new Color32(12, 12, 240, 255);
+    public static Color32 ColorPlayer4 = new Color32(240, 240, 12, 255);
+    public static Color32 ColorPlayer5 = new Color32(12, 240, 240, 255);
+    public static Color32 ColorPlayer6 = new Color32(240, 12, 240, 255);
+    public static Color32 ColorPlayerDef = new Color32(125, 125, 125, 255);
 
     public static Color GetColorByID(int id = 0)
     {
@@ -79,8 +79,8 @@ public class DrawEffectControl : MonoBehaviour {
         public void SetArea(Rect value) { _area = value; }
         public bool IsVisible() { return _visible; }
         public void SetVisible(bool value) { _visible = value; }
-        public Color GetColor() { return _color; }
-        public void SetColor(Color value) { _color = value; }
+        public Color32 GetColor() { return _color; }
+        public void SetColor(Color32 value) { _color = value; }
         public void SetBorderWidth(int value) { _borderWidth = value; }
         public int GetBorderWidth() { return _borderWidth; }
         public void SetFilled(bool value) { _isFilled = value; }
@@ -137,6 +137,8 @@ public class DrawEffectControl : MonoBehaviour {
     // private variables ---------------------------------------------------------------------------------------------------------------------------
     private CameraControl.CameraControl camC;
     private GameControl.GameControl gamC;
+    private float OffsetX = 0f;
+    private float OffsetY = 0f;
     // table resolution
     private float _tableX;
     private float _tableY;
@@ -160,18 +162,15 @@ public class DrawEffectControl : MonoBehaviour {
     {
         camC = CameraControl.CameraControl.cameraControl;
         gamC = GameControl.GameControl.gameControl;
+
+        OffsetX = camC.GetOffsetInX();
+        OffsetY = camC.GetOffsetInY();
         // copy the data about table to local class variable
-        _tableX = (float)camC.GetTableCornersById(0);
-        _tableY = (float)camC.GetTableCornersById(1);
+        _tableX = -(float)camC.GetTableCornersById(2) / 2f;
+        _tableY = -(float)camC.GetTableCornersById(3) / 2f;
         _tableWidth = (float)camC.GetTableCornersById(2);
         _tableHeight = (float)camC.GetTableCornersById(3);
 
-        /*_tableX = 0f;
-        _tableY = 0f;
-        _tableWidth = 50f;
-        _tableHeight = 80f;*/
-        // add sprite renderer to object
-        //tableBorderObject.AddComponent<SpriteRenderer>();
     }
 
     /// <summary>
@@ -198,6 +197,7 @@ public class DrawEffectControl : MonoBehaviour {
                 tableBorder.SetBorderWidth(10);
                 tableBorder.SetFilled(false);
                 tableBorder.SetArea(new Rect(_tableX, _tableY, _tableWidth, _tableHeight));
+                tableBorder.SetName("table");
                 CreateRectangle(tableBorder, "Default");
                 tableBorder.SetReadyToDraw(true);
             }
@@ -209,6 +209,11 @@ public class DrawEffectControl : MonoBehaviour {
             Debug.Log("Update drawing!");
             foreach (GameControl.UpdateInfo item in gamC.GetUpdateInfoList())
             {
+                if(item.effect == EffectsTypes.NONE)
+                {
+                    // set effect according to a state
+                    item.effect = GetEffectByState(item.State);
+                }
                 switch (item.effect)
                 {
                     case EffectsTypes.BORDER:
@@ -217,7 +222,7 @@ public class DrawEffectControl : MonoBehaviour {
                     case EffectsTypes.BORDER_MARKED:
                         BoderRectangleControl(item, PlayersColors.Marked);
                         break;
-                    case EffectsTypes.NONE:
+                    case EffectsTypes.NONE:                        
                     default:
                         Debug.Log("Unknnown effect.");
                         break;
@@ -234,11 +239,63 @@ public class DrawEffectControl : MonoBehaviour {
 
     }
 
-    private void BoderRectangleControl(GameControl.UpdateInfo updateConfig, Color val)
+    private EffectsTypes GetEffectByState(ARBangStateMachine.BangState state)
     {
-        if(updateConfig.CardId > 0)
+        switch(state)
+        {
+            case ARBangStateMachine.BangState.NEW_CARD_GUN_UPGRADE:
+            case ARBangStateMachine.BangState.NEW_CARD_HORSE_UPGRADE:
+            case ARBangStateMachine.BangState.NEW_CARD_UNKNOWN:
+                return EffectsTypes.BORDER;
+            default:
+                return EffectsTypes.NONE;
+        }
+
+    }
+
+
+
+    private void BoderRectangleControl(GameControl.UpdateInfo updateConfig, Color32 val)
+    {
+        if(updateConfig.CardId >= 0)
         {
             Debug.Log("Creating Border for card.");
+            if(cards.ContainsKey(updateConfig.CardId))
+            {
+                //update, maybe only destroy and create again
+            }
+            else
+            {
+                // get card config
+                ConfigFormats.Card cardConf = gamC.gameConfig.TblSettings.GetCardConfigByID(updateConfig.CardId);
+                if(cardConf == null)
+                {
+                    Debug.Log("Card config not found id: " + updateConfig.CardId);
+                    return;
+                }
+                // get card size
+                ConfigFormats.CardSize cardSizeConf = gamC.gameConfig.GetCardSizeByID(cardConf.SizeId);
+                if (cardSizeConf == null)
+                {
+                    Debug.Log("Card size config not found id: " + cardConf.SizeId);
+                    return;
+                }
+                // set card area
+                CardArea crArea = new CardArea();
+                crArea.SetName("pl" + updateConfig.PlayerID + "_pos" + updateConfig.CardId);
+                if (cardConf.turnNinety)
+                    crArea.SetArea(RelativeToAbsolute(cardConf.X, cardConf.Y, mmToPixels(cardSizeConf.Height), mmToPixels(cardSizeConf.Width), false));
+                else
+                    crArea.SetArea(RelativeToAbsolute(cardConf.X, cardConf.Y, mmToPixels(cardSizeConf.Width), mmToPixels(cardSizeConf.Height), false));
+                if (updateConfig.CardType == ARBangStateMachine.BangCard.NONE)
+                    crArea.SetFilled(true);
+                else
+                    crArea.SetFilled(false);
+                crArea.SetColor(PlayersColors.Universal);
+                crArea.SetBorderWidth(10);
+                CreateRectangle(crArea, "Cards");
+                crArea.SetReadyToDraw(true);
+            }
         }
         else
         {
@@ -246,7 +303,7 @@ public class DrawEffectControl : MonoBehaviour {
             // get info about player
             if(players.ContainsKey(updateConfig.PlayerID))
             {
-                // update or set active
+                // update or set active, maybe destroy and create again
             }
             else
             {
@@ -259,7 +316,7 @@ public class DrawEffectControl : MonoBehaviour {
                 plArea.SetFilled(false);
                 plArea.SetColor(PlayersColors.Universal);
                 plArea.SetBorderWidth(10);
-                CreateRectangle(plArea, "Default");
+                CreateRectangle(plArea, "Players");
                 plArea.SetReadyToDraw(true);
 
                 players[updateConfig.PlayerID] = plArea;
@@ -271,7 +328,7 @@ public class DrawEffectControl : MonoBehaviour {
                 efArea.SetFilled(false);
                 efArea.SetColor(PlayersColors.Universal);
                 efArea.SetBorderWidth(10);
-                CreateRectangle(efArea, "Default");
+                CreateRectangle(efArea, "Effects");
                 efArea.SetReadyToDraw(true);
 
                 effectAreas[updateConfig.PlayerID] = efArea;
@@ -279,7 +336,7 @@ public class DrawEffectControl : MonoBehaviour {
         }
     }
 
-    private void UpdateCardPlace(GameControl.UpdateInfo item)
+   /* private void UpdateCardPlace(GameControl.UpdateInfo item)
     {
         // check if the item to update exist, otherwise create info for it from settings
         if (cards.ContainsKey(item.CardId))
@@ -310,13 +367,13 @@ public class DrawEffectControl : MonoBehaviour {
             // finally add to dictionary
             cards[item.CardId] = cr;
         }
-    }
+    }*/
 
     private void CreateRectangle(BaseArea info, string sortingLayer)
     {
         for(int i = 0; i < 4; ++i)
         {
-            string name = info.GetName() + Convert.ToString(i);
+            string name = sortingLayer + "_" + info.GetName() + "_part" + Convert.ToString(i);
             info.sprites.Add(CreateRectanglePart(name, info.GetArea(), info.GetColor(), info.GetBorderWidth(), (RectangelParts)i, sortingLayer));
         }
         // if filled create one more sprite with alpha 125
@@ -327,21 +384,21 @@ public class DrawEffectControl : MonoBehaviour {
         }
     }
 
-    private GameObject CreateDimmedArea(string name, Rect area, Color col, string sortingLayer)
+    private GameObject CreateDimmedArea(string name, Rect area, Color32 col, string sortingLayer)
     {
         GameObject sprite = new GameObject("sprite" + name);
         sprite.transform.SetParent(this.transform);
         sprite.AddComponent<SpriteRenderer>();
         SpriteRenderer sr = sprite.GetComponent<SpriteRenderer>();
-        sr.color = col * 0.75f;
+        sr.color = new Color32(col.r, col.g, col.b, 40);
         sr.sortingLayerName = sortingLayer;
         sr.sprite = BorderUnit;
-        sprite.transform.localScale = new Vector3(area.width * 9f, area.height *9f, 1f);
-        sprite.transform.position = new Vector3((area.x + area.width)/2f, (area.y + area.height)/2f, 0f);
+        sprite.transform.localScale = new Vector3(area.width * 9f, area.height * 9f, 1f);
+        sprite.transform.position = new Vector3(PosByLeftTopCorner(area.width, area.x, OffsetX), PosByLeftTopCorner(area.height, area.y, OffsetY), 0f);
         return sprite;
     }
 
-    private GameObject CreateRectanglePart(string name, Rect area, Color col, int borderWidth, RectangelParts partType, string sortingLayer)
+    private GameObject CreateRectanglePart(string name, Rect area, Color32 col, int borderWidth, RectangelParts partType, string sortingLayer)
     {
         GameObject sprite = new GameObject("sprite" + name);
         sprite.transform.SetParent(this.transform);
@@ -354,19 +411,19 @@ public class DrawEffectControl : MonoBehaviour {
         {
             case RectangelParts.TOP:
                 sprite.transform.localScale = new Vector3(area.width * 10f, borderWidth, 1f);
-                sprite.transform.position = new Vector3(PosByLeftTopCorner(area.width, area.x), PosByLeftTopCorner(0, area.y), 0f);                
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(area.width, area.x, OffsetX), PosByLeftTopCorner(0, area.y, OffsetY), 0f);
                 break;
             case RectangelParts.LEFT:
                 sprite.transform.localScale = new Vector3(borderWidth, area.height * 10f, 1f);
-                sprite.transform.position = new Vector3(PosByLeftTopCorner(0, area.x), PosByLeftTopCorner(area.height, area.y), 0f);
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(0, area.x, OffsetX), PosByLeftTopCorner(area.height, area.y, OffsetY), 0f);
                 break;
             case RectangelParts.BOTTOM:
                 sprite.transform.localScale = new Vector3(area.width * 10f, borderWidth, 1f);
-                sprite.transform.position = new Vector3(PosByLeftTopCorner(area.width, area.x), PosByLeftTopCorner(0, area.y + area.height), 0f);
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(area.width, area.x, OffsetX), PosByLeftTopCorner(0, area.y + area.height, OffsetY), 0f);
                 break;
             case RectangelParts.RIGHT:
                 sprite.transform.localScale = new Vector3(borderWidth, area.height * 10f, 1f);
-                sprite.transform.position = new Vector3(PosByLeftTopCorner(0, area.x + area.width), PosByLeftTopCorner(area.height, area.y), 0f);
+                sprite.transform.position = new Vector3(PosByLeftTopCorner(0, area.x + area.width, OffsetX), PosByLeftTopCorner(area.height, area.y, OffsetY), 0f);
                 break;
             case RectangelParts.FILLING:
                 break;
@@ -375,17 +432,9 @@ public class DrawEffectControl : MonoBehaviour {
         return sprite;
     }
 
-    private float PosByLeftTopCorner(float size, float pos)
+    private float PosByLeftTopCorner(float size, float pos, float offset)
     {
-        return (pos + size / 2f);
-    }
-
-    private ConfigFormats.Card RelativeToAbsolute(ConfigFormats.Card cardConf)
-    {
-        ConfigFormats.Card cc = new ConfigFormats.Card();
-        cc.PlayerId = cardConf.PlayerId;
-
-        return cc;
+        return (pos + size / 2f) + offset;
     }
 
     /// <summary>
@@ -393,16 +442,36 @@ public class DrawEffectControl : MonoBehaviour {
     /// </summary>
     /// <param name="rel"></param>
     /// <returns></returns>
-    private Rect RelativeToAbsolute(float relX, float relY, float relWidth, float relHeight)
+    private Rect RelativeToAbsolute(float relX, float relY, float relWidth, float relHeight, bool recalculateSize = true)
     {
         Rect abs = new Rect
         {
             x = (_tableWidth / 100f) * relX + _tableX,
-            y = (_tableHeight / 100f) * relY + _tableY,
-            width = (_tableWidth / 100f) * relWidth,
-            height = (_tableHeight / 100f) * relHeight
+            y = -((_tableHeight / 100f) * relY  + _tableY), // minus, because top left corner is 0,0
         };
 
+        if (recalculateSize)
+        {
+            abs.width = (_tableWidth / 100f) * relWidth;
+            abs.height = -((_tableHeight / 100f) * relHeight);
+        }
+        else
+        {
+            abs.width = relWidth;
+            abs.height = -relHeight;
+        }
+
         return abs;
+    }
+
+    /// <summary>
+    /// Function calculate real size provided to it to pixel size.
+    /// </summary>
+    /// <param name="val">real size in mm</param>
+    /// <returns>Pixel size of real size.</returns>
+    private float mmToPixels(float val)
+    {
+        Debug.Log("mmInPixel: " + val + "->" + val * camC.GetMMInPixels());
+        return val * camC.GetMMInPixels();
     }
 }

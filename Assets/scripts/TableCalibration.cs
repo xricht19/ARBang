@@ -95,8 +95,9 @@ public class TableCalibration : MonoBehaviour {
             bool success = camControl.CalibrateProjectorUsingChessboard(ChessbordWidth);
             if (success)
             {
-                Vector2 size = new Vector2(0f, 0f);
-                Vector2 pos = new Vector2(0f, 0f);
+                Vector2 size = new Vector2(ChessboardSprite.GetComponent<RectTransform>().rect.size.x, ChessboardSprite.GetComponent<RectTransform>().rect.size.y);
+                //Vector2 pos = new Vector2(ChessboardSprite.GetComponent<RectTransform>().rect.position.x, ChessboardSprite.GetComponent<RectTransform>().rect.position.y);
+                Vector2 pos = new Vector2(ChessboardSprite.GetComponent<RectTransform>().position.x, ChessboardSprite.GetComponent<RectTransform>().position.y);
                 camControl.ApplyPositionOfImagePlaneOnTablePosition(size.x, size.y, pos.x, pos.y);
  
                 _showchessboard = false;

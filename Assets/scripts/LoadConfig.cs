@@ -3,6 +3,7 @@ using System.Xml;
 using System.Xml.Serialization;
 using System.IO;
 using System;
+using UnityEngine;
 
 namespace ConfigFormats
 { 
@@ -44,6 +45,8 @@ namespace ConfigFormats
         public int X;
         [XmlAttribute("left_top_corner_y")]
         public int Y;
+        [XmlAttribute("turn_ninety")]
+        public bool turnNinety;
     }
 
     [Serializable]
@@ -112,6 +115,16 @@ namespace ConfigFormats
         [XmlArray("ARBangGameSettings")]
         [XmlArrayItem("CardSize")]
         public List<CardSize> CardsSizes = new List<CardSize>();
+
+        public CardSize GetCardSizeByID(int id)
+        {
+            foreach (CardSize item in CardsSizes)
+            {
+                if (item.Id == id)
+                    return item;
+            }
+            return null;
+        }
 
         public static ARBang Load(string path)
         {
