@@ -13,6 +13,7 @@ public class ARBangStateMachine
         BASE = 0,
         UNKNOWN,
         BANG_PLAYED,
+        DODGE_PLAYED,
 
         // players updates states
         NEW_CARD_HORSE_UPGRADE,

@@ -89,7 +89,9 @@ namespace ConfigFormats
             foreach(Card item in CardsPositon)
             {
                 if (item.Id == id)
+                {
                     return item;
+                }
             }
             return null;
         }

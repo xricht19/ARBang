@@ -110,7 +110,6 @@ namespace GameControl
 
         private void AddAllForUpdate()
         {
-            Debug.Log("PlayersIDs size: " + _playersIDs.Count);
             foreach (int plID in _playersIDs)
             {
                 if (plID != 0)
@@ -124,16 +123,16 @@ namespace GameControl
                         effect = DrawEffectControl.EffectsTypes.BORDER,
                     };
                     _updateList.Add(plBorder);
-                }
-                UpdateInfo up = new UpdateInfo
-                {
-                    State = ARBangStateMachine.BangState.BASE,
-                    PlayerID = plID,
-                };
+                }                
                 if (_cardPosIDs.ContainsKey(plID))
                 {
                     foreach (CardInfo cardID in _cardPosIDs[plID])
                     {
+                        UpdateInfo up = new UpdateInfo
+                        {
+                            State = ARBangStateMachine.BangState.BASE,
+                            PlayerID = plID,
+                        };
                         up.effect = DrawEffectControl.EffectsTypes.BORDER;
                         up.CardId = cardID.CardID;
                         up.CardType = cardID.CardType;
@@ -149,7 +148,6 @@ namespace GameControl
                     Debug.Log("Some player does not have defined any card places!");
                 }
             }
-            Debug.Log("Size of update info after start: " + _updateList.Count);
             // set to draw
             _updateRedrawReady = true;
         }
@@ -216,6 +214,20 @@ namespace GameControl
                 if (_currentlyMostActivePlayer.Key > 0)
                 {
                     Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key);
+                    // generate update config to mark his area
+                    UpdateInfo up = new UpdateInfo
+                    {
+                        State = ARBangStateMachine.BangState.BASE,
+                        PlayerID = _currentlyMostActivePlayer.Key,
+                    };
+                    up.effect = DrawEffectControl.EffectsTypes.BORDER_MARKED;
+                    up.CardId = -1;
+                    up.CardType = ARBangStateMachine.BangCard.NONE;
+                    if (up.CardType == ARBangStateMachine.BangCard.NONE)
+                        up.Appear = false;
+                    else
+                        up.Appear = true;
+                    _updateList.Add(up);
                 }
 
                 // check all possible card places for active players
@@ -228,6 +240,7 @@ namespace GameControl
                         {
                             ushort cardTypeNew = Convert.ToUInt16(entry.CardType);
                             camC.IsCardChanged(entry.CardID, ref cardTypeNew);
+                            Debug.Log("Card " + entry.CardID + " was check; New id: " + cardTypeNew);
                             // if card has changed, set for redraw update and update game state
                             if (cardTypeNew != Convert.ToUInt16(entry.CardType))
                             {
@@ -258,13 +271,14 @@ namespace GameControl
                             }
                         }
                     }
-                    // check if player was active, and check his card if yes
-                    else if (_currentlyActivePlayers.Contains(item.Key))
+                    // also check cards of most active player
+                    else if (item.Key == _currentlyMostActivePlayer.Key)
                     {
                         foreach (CardInfo entry in item.Value)
                         {
                             ushort cardTypeNew = Convert.ToUInt16(entry.CardType);
                             camC.IsCardChanged(entry.CardID, ref cardTypeNew);
+                            Debug.Log("Card " + entry.CardID + " was check; New id: " + cardTypeNew);
                             // if card has changed, set for redraw update and update game state
                             if (cardTypeNew != Convert.ToUInt16(entry.CardType))
                             {

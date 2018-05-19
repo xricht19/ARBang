@@ -524,9 +524,9 @@ namespace CameraControl
             }
             else
             {
-                Debug.Log("SquareInMM: " + _squareInMM);
+                //Debug.Log("SquareInMM: " + _squareInMM);
                 _mmInPixels = (chessboardWidthInPixels * StaticVariablesCameraControl.ChessboardSquareToWholeChessboardSize) / _squareInMM;
-                Debug.Log("mmInPixel: " + _mmInPixels);
+                /*Debug.Log("mmInPixel: " + _mmInPixels);
                 for (int i = 0; i < dataSize; ++i)
                 {
                     Debug.Log(i + ": " + _projectorCameraMatrix[i]);
@@ -535,7 +535,7 @@ namespace CameraControl
                 for(int i = 0; i < StaticVariablesCameraControl.TableCornersArray; ++i)
                 {
                     Debug.Log(_tableCorners[i]);
-                }
+                }*/
 
                 return true;
             }
@@ -572,12 +572,12 @@ namespace CameraControl
             float moveX = chessboardCornerX - chessboardCornerXFromCamera;
             float moveY = chessboardCornerY - chessboardCornerYFromCamera;
 
-            Debug.Log("CORNER X: " + chessboardCornerX + " vs " + chessboardCornerXFromCamera);
+            /*Debug.Log("CORNER X: " + chessboardCornerX + " vs " + chessboardCornerXFromCamera);
             Debug.Log("CORNER Y: " + chessboardCornerY + " vs " + chessboardCornerYFromCamera);
 
             Debug.Log("OFFSETS: " + moveX + " | " + moveY);
             Debug.Log("Table settings: x:" + _tableCorners[0] + ", y:" + _tableCorners[1]);
-            Debug.Log("Table settings: w:" + _tableCorners[2] + ", h:" + _tableCorners[3]);
+            Debug.Log("Table settings: w:" + _tableCorners[2] + ", h:" + _tableCorners[3]);*/
 
             SetOffsetInX(moveX);
             SetOffsetInY(moveY);
