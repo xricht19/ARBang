@@ -1,40 +1,35 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using System;
 
 
 public static class PlayersColors
 {
     public static Color32 Universal = new Color32(204, 204, 0, 255);
-    public static Color32 Marked = new Color32(255, 0, 0, 255);
-    public static Color32 ColorPlayer1 = new Color32(240, 12, 12, 255);
-    public static Color32 ColorPlayer2 = new Color32(12, 240, 12, 255);
-    public static Color32 ColorPlayer3 = new Color32(12, 12, 240, 255);
-    public static Color32 ColorPlayer4 = new Color32(240, 240, 12, 255);
-    public static Color32 ColorPlayer5 = new Color32(12, 240, 240, 255);
-    public static Color32 ColorPlayer6 = new Color32(240, 12, 240, 255);
-    public static Color32 ColorPlayerDef = new Color32(125, 125, 125, 255);
+    public static Color32 Marked = new Color32(0, 255, 0, 255);
+    public static Color32 MarkedNonConfirmed = new Color32(255, 0, 0, 255);
+    public static Color32 MarkedNotRecognized = new Color32(255, 0, 0, 255);
+}
 
-    public static Color GetColorByID(int id = 0)
+public static class PlayersRotations
+{
+    public static int player1 = -90;
+    public static int player2 = 0;
+    public static int player3 = 0;
+    public static int player4 = 90;
+
+    public static int GetRotationOfPlayer(int plID)
     {
-        switch(id)
+        switch(plID)
         {
             case 1:
-                return ColorPlayer1;
-            case 2:
-                return ColorPlayer2;
-            case 3:
-                return ColorPlayer3;
+                return player1;
             case 4:
-                return ColorPlayer4;
-            case 5:
-                return ColorPlayer5;
-            case 6:
-                return ColorPlayer6;
-            default:
-                return Universal;
+                return player4;
         }
+        return 0;
     }
 }
 
@@ -48,14 +43,18 @@ public class DrawEffectControl : MonoBehaviour {
         NONE = 0,
         BORDER,
         BORDER_MARKED,
+        BORDER_MARKED_NON_CONFIRMED,
+        BORDED_MARKED_NOT_RECOGNIZED,
         GUN,
         BANG,
         DODGE,
+        HORSE,
     }
 
     public static class EffectsDuration
     {
-        public static float BORDER_MARKED = 2f;
+        public static float BORDER_MARKED = .5f;
+        public static float BORDER_MARKED_NON_CONFIRMED = .2f;
     }
 
     private enum RectangelParts
@@ -81,6 +80,7 @@ public class DrawEffectControl : MonoBehaviour {
         // public variables
         public List<GameObject> sprites;
         public bool AreaMarked = false;
+        public bool AreaBlinking = false;
         public float LastChanged = 0f;
 
         // setters and getters
@@ -143,6 +143,7 @@ public class DrawEffectControl : MonoBehaviour {
         public EffectsTypes _effectType = EffectsTypes.NONE;
         public EffectsTypes _defaultEffectType = EffectsTypes.NONE;
         public float lastChangeTime = 0f;
+        public GameObject spriteRendererHolder;
     }
 
     // private variables ---------------------------------------------------------------------------------------------------------------------------
@@ -161,9 +162,12 @@ public class DrawEffectControl : MonoBehaviour {
     private SortedDictionary<int, PlayerArea> players = new SortedDictionary<int, PlayerArea>();
     private SortedDictionary<int, EffectArea> effectAreas = new SortedDictionary<int, EffectArea>();
 
-
     // ---------------------- SPRITES AND MODELS --------------------------------------------------------------------
     public Sprite BorderUnit;
+    public Sprite horseSprite;
+    public Sprite gunSprite;
+    public Sprite smiley;
+    public Sprite badSmiley;
 
 
     // in start function the sprites for player areas and cards should be created, we can use 
@@ -192,21 +196,33 @@ public class DrawEffectControl : MonoBehaviour {
         // go through all areas and check if marked should no be unmarked
         foreach(KeyValuePair<int, PlayerArea> item in players)
         {
-            if(item.Value.AreaMarked && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED))
+            if(item.Value.AreaBlinking && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED_NON_CONFIRMED))
+            {
+                SwitchBorderColor(item.Value);
+            }
+            if(!item.Value.AreaBlinking && item.Value.AreaMarked && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED))
             {
                 ChangeBorderColor(item.Value, PlayersColors.Universal);
             }
         }
         foreach (KeyValuePair<int, CardArea> item in cards)
         {
-            if (item.Value.AreaMarked && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED))
+            if (item.Value.AreaBlinking && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED_NON_CONFIRMED))
+            {
+                SwitchBorderColor(item.Value);
+            }
+            if (!item.Value.AreaBlinking && item.Value.AreaMarked && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED))
             {
                 ChangeBorderColor(item.Value, PlayersColors.Universal);
             }
         }
         foreach (KeyValuePair<int, EffectArea> item in effectAreas)
         {
-            if (item.Value.AreaMarked && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED))
+            if (item.Value.AreaBlinking && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED_NON_CONFIRMED))
+            {
+                SwitchBorderColor(item.Value);
+            }
+            if (!item.Value.AreaBlinking && item.Value.AreaMarked && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED))
             {
                 ChangeBorderColor(item.Value, PlayersColors.Universal);
             }
@@ -245,6 +261,7 @@ public class DrawEffectControl : MonoBehaviour {
             Debug.Log("Update drawing!");
             foreach (GameControl.UpdateInfo item in gamC.GetUpdateInfoList())
             {
+                //Debug.Log("Updating: " + item.PlayerID + ", card: " + item.CardId);
                 if(item.effect == EffectsTypes.NONE)
                 {
                     // set effect according to a state
@@ -257,6 +274,21 @@ public class DrawEffectControl : MonoBehaviour {
                         break;
                     case EffectsTypes.BORDER_MARKED:
                         BoderRectangleControl(item, PlayersColors.Marked, true);
+                        break;
+                    case EffectsTypes.BORDER_MARKED_NON_CONFIRMED:
+                        BoderRectangleControl(item, PlayersColors.MarkedNonConfirmed, false, true);
+                        break;
+                    case EffectsTypes.BORDED_MARKED_NOT_RECOGNIZED:
+                        BoderRectangleControl(item, PlayersColors.MarkedNotRecognized, false, false);
+                        break;
+                    case EffectsTypes.HORSE:
+                        DrawInEffectAreaOne(item, horseSprite);
+                        break;
+                    case EffectsTypes.BANG:
+                        DrawInEffectAreaOne(item, smiley);
+                        break;
+                    case EffectsTypes.DODGE:
+                        DrawInEffectAreaOne(item, badSmiley);
                         break;
                     case EffectsTypes.NONE:
                     default:
@@ -275,11 +307,48 @@ public class DrawEffectControl : MonoBehaviour {
 
     }
 
+    private void DrawInEffectAreaOne(GameControl.UpdateInfo info, Sprite toDraw)
+    {
+        EffectArea current = effectAreas[info.PlayerID];
+        Rect area = current.GetArea();
+        current.spriteRendererHolder = new GameObject();
+        // set position and size
+        current.spriteRendererHolder.transform.SetParent(this.transform);
+        current.spriteRendererHolder.transform.position = new Vector3(area.x+OffsetX+(area.width/2), area.y + OffsetY + (area.height / 2), 0f);
+        current.spriteRendererHolder.transform.Rotate(new Vector3(0, 0, PlayersRotations.GetRotationOfPlayer(info.PlayerID)));
+        current.spriteRendererHolder.transform.localScale = new Vector3(35, 35, 1f);
+
+        current.spriteRendererHolder.AddComponent<SpriteRenderer>();
+        SpriteRenderer sr = current.spriteRendererHolder.GetComponent<SpriteRenderer>();
+
+        sr.sprite = toDraw;
+        current.spriteRendererHolder.SetActive(true);
+    }
+
+    private void SwitchBorderColor(BaseArea area)
+    {
+        Color32 col = PlayersColors.Universal;
+        foreach (GameObject item in area.sprites)
+        {
+            if(item.GetComponent<SpriteRenderer>().color == PlayersColors.Universal)
+            {
+                col = PlayersColors.MarkedNonConfirmed;
+            }
+            if (item.name.Contains("dimmed"))
+                item.GetComponent<SpriteRenderer>().color = new Color32(col.r, col.g, col.b, 30);
+            else
+                item.GetComponent<SpriteRenderer>().color = col;
+        }
+    }
+
     private void ChangeBorderColor(BaseArea area, Color32 col)
     {
         foreach (GameObject item in area.sprites)
         {
-            item.GetComponent<SpriteRenderer>().color = col;
+            if(item.name.Contains("dimmed"))
+                item.GetComponent<SpriteRenderer>().color = new Color32(col.r, col.g, col.b, 30);
+            else
+                item.GetComponent<SpriteRenderer>().color = col;
         }
     }
 
@@ -288,23 +357,29 @@ public class DrawEffectControl : MonoBehaviour {
         switch(state)
         {
             case ARBangStateMachine.BangState.NEW_CARD_GUN_UPGRADE:
+                return EffectsTypes.GUN;
             case ARBangStateMachine.BangState.NEW_CARD_HORSE_UPGRADE:
+                return EffectsTypes.HORSE;
+            case ARBangStateMachine.BangState.BANG_PLAYED:
+                return EffectsTypes.BANG;
+            case ARBangStateMachine.BangState.DODGE_PLAYED:
+                return EffectsTypes.DODGE;
             case ARBangStateMachine.BangState.NEW_CARD_UNKNOWN:
-                return EffectsTypes.BORDER;
+                return EffectsTypes.BORDED_MARKED_NOT_RECOGNIZED;
             default:
-                return EffectsTypes.NONE;
+                return EffectsTypes.BORDER;
         }
     }
 
 
-    private void BoderRectangleControl(GameControl.UpdateInfo updateConfig, Color32 val, bool marked = false)
+    private void BoderRectangleControl(GameControl.UpdateInfo updateConfig, Color32 val, bool marked = false, bool blinking = false)
     {
         if(updateConfig.CardId >= 0)
         {
             if(cards.ContainsKey(updateConfig.CardId))
             {
                 // destroy previous
-                RemoveSpritesFromParent(players[updateConfig.CardId]);
+                RemoveSpritesFromParent(cards[updateConfig.CardId]);
                 cards.Remove(updateConfig.CardId);
             }
             // get card config
@@ -338,6 +413,7 @@ public class DrawEffectControl : MonoBehaviour {
             CreateRectangle(crArea, "Cards", true);
             crArea.SetReadyToDraw(true);
             crArea.AreaMarked = marked;
+            crArea.AreaBlinking = blinking;
             crArea.LastChanged = Time.time;
 
             cards[updateConfig.CardId] = crArea;
@@ -348,6 +424,7 @@ public class DrawEffectControl : MonoBehaviour {
             // get info about player
             if(players.ContainsKey(updateConfig.PlayerID))
             {
+                // only update should be performed
                 RemoveSpritesFromParent(players[updateConfig.PlayerID]);
                 players.Remove(updateConfig.PlayerID);
                 RemoveSpritesFromParent(effectAreas[updateConfig.PlayerID]);
@@ -364,6 +441,8 @@ public class DrawEffectControl : MonoBehaviour {
             plArea.SetBorderWidth(10);
             CreateRectangle(plArea, "Players");
             plArea.SetReadyToDraw(true);
+            plArea.AreaMarked = marked;
+            plArea.AreaBlinking = blinking;
             plArea.LastChanged = Time.time;
 
             players[updateConfig.PlayerID] = plArea;
@@ -378,6 +457,7 @@ public class DrawEffectControl : MonoBehaviour {
             CreateRectangle(efArea, "Effects");
             efArea.SetReadyToDraw(true);
             efArea.AreaMarked = marked;
+            efArea.AreaBlinking = blinking;
             efArea.LastChanged = Time.time;
 
             effectAreas[updateConfig.PlayerID] = efArea;
@@ -444,7 +524,7 @@ public class DrawEffectControl : MonoBehaviour {
 
     private GameObject CreateDimmedArea(string name, Rect area, Color32 col, string sortingLayer)
     {
-        GameObject sprite = new GameObject("sprite" + name);
+        GameObject sprite = new GameObject("sprite" + name + "dimmed");
         sprite.transform.SetParent(this.transform);
         sprite.AddComponent<SpriteRenderer>();
         SpriteRenderer sr = sprite.GetComponent<SpriteRenderer>();

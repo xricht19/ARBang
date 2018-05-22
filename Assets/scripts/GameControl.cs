@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using UnityEngine;
+using UnityEngine.UI;
 using System;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
@@ -11,6 +12,8 @@ namespace GameControl
     public static class GameConfigDefines
     {
         public static string ConfigPath = "Assets/ARBang/Settings0.xml";
+        public static int CheckNumber = 4;
+        public static int ConfirmationRequired = 2;
     }
 
     public enum UpdatePriority
@@ -24,6 +27,7 @@ namespace GameControl
     {
         // state is bound to player which cause it
         public int PlayerID = -1;
+        public int PreviousPlayerID = -1;
         public double PlayerIntensity = 0.0;
         public ARBangStateMachine.BangState State;
         // card id + current card in that place and if the card appear or disappear
@@ -49,6 +53,17 @@ namespace GameControl
             public ARBangStateMachine.BangCard CardType;
         }
 
+        private class CardChecker
+        {
+            public ushort cardID = 0;
+            public int playerID = -1;
+            public ushort cardType = 0;
+            public Dictionary<ushort, int> possibleNewCardTypes = new Dictionary<ushort, int>();
+            public int wasChecked = 0;
+            public int MostActivePlayer = 0;
+            public bool wasMarked = false;
+        }
+
 
         // game data and state hoder
         public static GameControl gameControl = null;
@@ -65,6 +80,7 @@ namespace GameControl
         // id which changed this table check
         private OrderedDictionary _currentlyActivePlayers = new OrderedDictionary();
         private KeyValuePair<int, double> _currentlyMostActivePlayer = new KeyValuePair<int, double>(-1, 0.0);
+        private bool WasCentralAreaActive = false;
 
         private bool _isGameStarted = false;
         public bool IsGameStarted() { return _isGameStarted; }
@@ -75,7 +91,6 @@ namespace GameControl
         public bool LoadingSuccessfull() { return _loadingSuccessfull; }
 
         // update for redraw
-        private UpdateInfo _currentUpdate = new UpdateInfo();
         private bool _updateRedrawReady = false;
         private List<UpdateInfo> _updateList = new List<UpdateInfo>();
 
@@ -91,6 +106,8 @@ namespace GameControl
         private ARBangStateMachine _bangStateMachine = new ARBangStateMachine();
         public ARBangStateMachine GetBangStateMachine() { return _bangStateMachine; }
 
+        // keep all cards that should be check this round
+        private Dictionary<ushort, CardChecker> cardsToCheck = new Dictionary<ushort, CardChecker>();
 
         // check if the GameControl already exists, create it otherwise
         void Awake()
@@ -123,7 +140,7 @@ namespace GameControl
                         effect = DrawEffectControl.EffectsTypes.BORDER,
                     };
                     _updateList.Add(plBorder);
-                }                
+                }
                 if (_cardPosIDs.ContainsKey(plID))
                 {
                     foreach (CardInfo cardID in _cardPosIDs[plID])
@@ -164,16 +181,16 @@ namespace GameControl
             gameConfig = ConfigFormats.ARBang.Load(GameConfigDefines.ConfigPath);
             // get players IDs to check for active areas
             ConfigFormats.Player pl = gameConfig.TblSettings.PlayersArray.GetNextPlayer();
-            while(pl != null)
+            while (pl != null)
             {
                 _playersIDs.Add(pl.Id);
                 pl = gameConfig.TblSettings.PlayersArray.GetNextPlayer();
             }
-            foreach(ConfigFormats.Card item in gameConfig.TblSettings.CardsPositon)
+            foreach (ConfigFormats.Card item in gameConfig.TblSettings.CardsPositon)
             {
                 int key = item.PlayerId;
                 List<CardInfo> value;
-                if(!_cardPosIDs.ContainsKey(key))
+                if (!_cardPosIDs.ContainsKey(key))
                     value = new List<CardInfo>();
                 else
                     value = _cardPosIDs[key];
@@ -183,6 +200,9 @@ namespace GameControl
             }
             AddAllForUpdate();
             SetGameStarted();
+
+            // prepare ARBang state machine
+            _bangStateMachine.InitARBangStateMachine(_playersIDs.Count);
         }
 
         /// <summary>
@@ -203,17 +223,26 @@ namespace GameControl
                     double intensity = camC.IsPlayerActive(plID);
                     if (intensity > 0.0)
                     {
-                        if (intensity > _currentlyMostActivePlayer.Value)
+                        if(plID == 0 )
+                        {
+                            WasCentralAreaActive = true;
+                        }
+                        else if (intensity > _currentlyMostActivePlayer.Value)
                         {
                             _currentlyMostActivePlayer = new KeyValuePair<int, double>(plID, intensity);
                         }
                         _currentlyActivePlayers.Add(plID, intensity);
-                        Debug.Log("Player " + plID + " is active.");
+                        //Debug.Log("Player " + plID + " is active.");
                     }
                 }
                 if (_currentlyMostActivePlayer.Key > 0)
                 {
-                    Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key);
+                    // save active player if messed up with central area
+                    if (WasCentralAreaActive)
+                    {
+                        _bangStateMachine.AddActivePlayer(_currentlyMostActivePlayer.Key, _currentlyMostActivePlayer.Value);
+                    }
+                    //Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key);
                     // generate update config to mark his area
                     UpdateInfo up = new UpdateInfo
                     {
@@ -228,104 +257,215 @@ namespace GameControl
                     else
                         up.Appear = true;
                     _updateList.Add(up);
-                }
 
-                // check all possible card places for active players
-                foreach (KeyValuePair<int, List<CardInfo>> item in _cardPosIDs)
-                {
-                    // check if card has changed for common area -> ID of common area is always zero
-                    if (item.Key == 0)
+                    // add cards for check
+                    foreach (KeyValuePair<int, List<CardInfo>> item in _cardPosIDs)
                     {
-                        foreach (CardInfo entry in item.Value)
+                        // check if card has changed for common area -> ID of common area is always zero
+                        if ((item.Key == 0 && WasCentralAreaActive) || item.Key == _currentlyMostActivePlayer.Key)
                         {
-                            ushort cardTypeNew = Convert.ToUInt16(entry.CardType);
-                            camC.IsCardChanged(entry.CardID, ref cardTypeNew);
-                            Debug.Log("Card " + entry.CardID + " was check; New id: " + cardTypeNew);
-                            // if card has changed, set for redraw update and update game state
-                            if (cardTypeNew != Convert.ToUInt16(entry.CardType))
+                            foreach (CardInfo entry in item.Value)
                             {
-                                // apply new common data
-                                ARBangStateMachine.CommonAreaPackages currentPack = (ARBangStateMachine.CommonAreaPackages)entry.CardID;
-                                bool needImmidiateRedraw = _bangStateMachine.ApplyNewCommonData(item.Key, (ARBangStateMachine.BangCard)cardTypeNew, currentPack);
-                                if (needImmidiateRedraw)
+                                if (cardsToCheck.ContainsKey(entry.CardID))
                                 {
-                                    // create update for redraw
-                                    _currentUpdate.CardId = entry.CardID;
-                                    _currentUpdate.PlayerID = _currentlyMostActivePlayer.Key;
-                                    _currentUpdate.State = _bangStateMachine.GetState();
-                                    _currentUpdate.Priority = UpdatePriority.COMMON_AREA;
-                                    if ((ARBangStateMachine.BangCard)cardTypeNew == ARBangStateMachine.BangCard.NONE)
-                                    {
-                                        _currentUpdate.CardType = entry.CardType;
-                                        _currentUpdate.Appear = false;
-                                    }
-                                    else
-                                    { 
-                                        _currentUpdate.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
-                                        _currentUpdate.Appear = true;
-                                    }
-                                    _updateList.Add(_currentUpdate);
+                                    // player was active again, reset check
+                                    cardsToCheck[entry.CardID].MostActivePlayer = _currentlyMostActivePlayer.Key;
+                                    cardsToCheck[entry.CardID].wasChecked = 0;
+                                    cardsToCheck[entry.CardID].possibleNewCardTypes.Clear();
                                 }
-                                // finally, save new detected card
-                                entry.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
-                            }
-                        }
-                    }
-                    // also check cards of most active player
-                    else if (item.Key == _currentlyMostActivePlayer.Key)
-                    {
-                        foreach (CardInfo entry in item.Value)
-                        {
-                            ushort cardTypeNew = Convert.ToUInt16(entry.CardType);
-                            camC.IsCardChanged(entry.CardID, ref cardTypeNew);
-                            Debug.Log("Card " + entry.CardID + " was check; New id: " + cardTypeNew);
-                            // if card has changed, set for redraw update and update game state
-                            if (cardTypeNew != Convert.ToUInt16(entry.CardType))
-                            {
-                                // apply new player data
-                                bool needImmidiateRedraw = _bangStateMachine.ApplyNewPlayerData(item.Key, (ARBangStateMachine.BangCard)cardTypeNew, entry.CardType);
-                                if (needImmidiateRedraw)
+                                else
                                 {
-                                    // create update for redraw
-                                    _currentUpdate.CardId = entry.CardID;
-                                    _currentUpdate.PlayerID = item.Key;
-                                    _currentUpdate.State = _bangStateMachine.GetStateForPlayer(_currentUpdate.PlayerID);
-                                    _currentUpdate.Priority = UpdatePriority.BASIC;
-                                    if ((ARBangStateMachine.BangCard)cardTypeNew == ARBangStateMachine.BangCard.NONE)
-                                    {
-                                        _currentUpdate.CardType = entry.CardType;
-                                        _currentUpdate.Appear = false;
-                                    }
-                                    else
-                                    {
-                                        _currentUpdate.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
-                                        _currentUpdate.Appear = true;
-                                    }
-                                    _updateList.Add(_currentUpdate);
+                                    // add card for check
+                                    CardChecker cc = new CardChecker();
+                                    cc.cardID = Convert.ToUInt16(entry.CardID);
+                                    cc.playerID = item.Key;
+                                    cc.wasChecked = 0;
+                                    cc.possibleNewCardTypes.Clear();
+                                    cc.cardType = (ushort)entry.CardType;
+                                    cc.MostActivePlayer = _currentlyMostActivePlayer.Key;
+                                    cardsToCheck.Add((ushort)entry.CardID, cc);
                                 }
-                                // finally, save new detected card
-                                entry.CardType = (ARBangStateMachine.BangCard)cardTypeNew;
                             }
                         }
                     }
                 }
+                //Debug.Log("Cards to check: " + cardsToCheck.Count);
+                // get new frame, the player activity covered table in previous one
+                camC.PrepareNextImageInDetection();
+                List<ushort> itemsToRemove = new List<ushort>();
+                // check card places which need to be checked
+                foreach (KeyValuePair<ushort, CardChecker> cardPosToCheck in cardsToCheck)
+                {
+                    CardChecker currentChecker = cardPosToCheck.Value;
+                    ushort cardTypeNew = 0;
+                    camC.IsCardChanged(cardPosToCheck.Key, ref cardTypeNew);
+                    //Debug.Log("Checking id: " + cardPosToCheck.Key + ", new id: " + cardTypeNew);
+                    // some card was detected show, bounding box, the type of card is not certain yet
+                    if(cardTypeNew != (ushort)ARBangStateMachine.BangCard.NONE && !currentChecker.wasMarked)
+                    {
+                        CreateUpdateInfoToMarkArea(currentChecker.MostActivePlayer, currentChecker.cardID, cardTypeNew, false);
+                        currentChecker.wasMarked = true;
+                    }
+                    if (currentChecker.possibleNewCardTypes.ContainsKey(cardTypeNew))
+                    {
+                        // possible new card type found again
+                        currentChecker.possibleNewCardTypes[cardTypeNew] += 1;
+                    }
+                    else
+                    {
+                        // new possible card
+                        currentChecker.possibleNewCardTypes.Add(cardTypeNew, 0);
+                    }
+                    // check is some possible new card type was confirmed enough times
+                    foreach (KeyValuePair<ushort, int> item in currentChecker.possibleNewCardTypes)
+                    {
+                        if (item.Value >= GameConfigDefines.ConfirmationRequired)
+                        {
+                            if (item.Key != currentChecker.cardType)
+                            {
+                                Debug.Log("New card detected on id: " + currentChecker.cardID + ", type: " + item.Key);
+                                // card changed and confirmed, create update
+                                CreateUpdateInfo(currentChecker.cardID, currentChecker.playerID, item.Key, currentChecker.cardType, currentChecker.MostActivePlayer);
+                                CreateUpdateInfoToMarkArea(currentChecker.MostActivePlayer, currentChecker.cardID, cardTypeNew);
+                                // remove position to check in future
+                                itemsToRemove.Add(cardPosToCheck.Key);
+                            }
+                            // save new detected card to its position
+                            List<CardInfo> ci = _cardPosIDs[currentChecker.playerID];
+                            foreach (CardInfo ciOne in ci)
+                            {
+                                if (ciOne.CardID == currentChecker.cardID)
+                                {
+                                    ciOne.CardType = (ARBangStateMachine.BangCard)item.Key;
+                                }
+                            }
+                        }
+                    }                    
+                    // increase number of check performed on this position and check if not too many times already
+                    ++currentChecker.wasChecked;
+                    // remove the ones which were check too many times without result
+                    if (currentChecker.wasChecked >= GameConfigDefines.CheckNumber)
+                    {
+                        itemsToRemove.Add(cardPosToCheck.Key);
+                        // generate update info, to stop blinking and use color red
+                        CreateUpdateInfo(currentChecker.cardID, currentChecker.playerID, (ushort)ARBangStateMachine.BangCard.NONE, currentChecker.cardType, currentChecker.MostActivePlayer);
+                    }
+                }
+                foreach (var removeItemA in itemsToRemove)
+                {
+                    cardsToCheck.Remove(removeItemA);
+                }
+                itemsToRemove.Clear();
 
                 if (_updateList.Count > 0)
                 {
-                    Debug.Log("Items needs update: " + _updateList.Count);
+                    //Debug.Log("Items needs update: " + _updateList.Count);
                     _updateRedrawReady = true;
                 }
-
-                // prepare for next check
-                _currentUpdate.PlayerID = -1;
-                _currentUpdate.PlayerIntensity = 0.0;
-                _currentUpdate.CardId = -1;
-                _currentUpdate.CardType = ARBangStateMachine.BangCard.NONE;
-                _currentUpdate.State = ARBangStateMachine.BangState.UNKNOWN;
-
                 _currentlyActivePlayers.Clear();
                 _currentlyMostActivePlayer = new KeyValuePair<int, double>(-1, 0.0);
+                WasCentralAreaActive = false;
             }
+        }
+
+        private void CreateUpdateInfo(ushort cardId, int playerId, ushort newDetectedCardType, ushort oldCardType, int mostActivePlayer)
+        {
+            // check if card has changed for common area -> ID of common area is always zero
+            if (playerId == 0)
+            {
+                // apply new common data
+                ARBangStateMachine.CommonAreaPackages currentPack = (ARBangStateMachine.CommonAreaPackages)cardId;
+                bool needImmidiateRedraw = _bangStateMachine.ApplyNewCommonData(mostActivePlayer, (ARBangStateMachine.BangCard)newDetectedCardType, currentPack);
+                if (needImmidiateRedraw)
+                {
+                    // create update for redraw
+                    UpdateInfo curUpInfo = new UpdateInfo();
+                    curUpInfo.CardId = cardId;
+                    curUpInfo.PlayerID = mostActivePlayer;
+                    curUpInfo.PreviousPlayerID = _bangStateMachine.GetLastActivePlayerID();
+                    curUpInfo.State = _bangStateMachine.GetState();
+                    curUpInfo.effect = DrawEffectControl.EffectsTypes.NONE;
+                    curUpInfo.Priority = UpdatePriority.COMMON_AREA;
+                    curUpInfo.CardType = (ARBangStateMachine.BangCard)newDetectedCardType;
+                    if ((ARBangStateMachine.BangCard)newDetectedCardType == ARBangStateMachine.BangCard.NONE)
+                        curUpInfo.Appear = false;
+                    else
+                        curUpInfo.Appear = true;
+                    // add update to updates list
+                    _updateList.Add(curUpInfo);
+                }
+            }
+            // card not in common area
+            else
+            {
+                // apply new player data
+                bool needImmidiateRedraw = _bangStateMachine.ApplyNewPlayerData(mostActivePlayer, (ARBangStateMachine.BangCard)newDetectedCardType, (ARBangStateMachine.BangCard)oldCardType);
+                if (needImmidiateRedraw)
+                {
+                    // create update for redraw
+                    UpdateInfo curUpInfo = new UpdateInfo();
+                    curUpInfo.CardId = cardId;
+                    curUpInfo.PlayerID = playerId;
+                    curUpInfo.State = _bangStateMachine.GetStateForPlayer(curUpInfo.PlayerID);
+                    //Debug.Log("Player state: " + curUpInfo.State);
+                    curUpInfo.effect = DrawEffectControl.EffectsTypes.NONE;
+                    curUpInfo.Priority = UpdatePriority.BASIC;
+                    curUpInfo.CardType = (ARBangStateMachine.BangCard)newDetectedCardType;
+                    if ((ARBangStateMachine.BangCard)newDetectedCardType == ARBangStateMachine.BangCard.NONE)
+                        curUpInfo.Appear = false;
+                    else
+                        curUpInfo.Appear = true;
+                    // add update to updates list
+                    _updateList.Add(curUpInfo);
+                }
+            }
+        }
+
+        private void CreateUpdateInfoToMarkArea(int mostActivePlayer, ushort cardId, ushort cardType, bool confirmed = true)
+        {
+            // generate update config to mark his area
+            UpdateInfo up = new UpdateInfo
+            {
+                State = ARBangStateMachine.BangState.BASE,
+                PlayerID = mostActivePlayer,
+            };
+            if (confirmed)
+                up.effect = DrawEffectControl.EffectsTypes.BORDER_MARKED;
+            else
+                up.effect = DrawEffectControl.EffectsTypes.BORDER_MARKED_NON_CONFIRMED;
+            up.CardId = cardId;
+            up.CardType = (ARBangStateMachine.BangCard)cardType;
+            if (up.CardType == ARBangStateMachine.BangCard.NONE)
+            {
+                up.Appear = false;
+            }
+            else
+            {
+                up.Appear = true;
+            }
+            _updateList.Add(up);
+        }
+
+        public void AddCardManually()
+        {
+            GameObject cardIDObject = GameObject.Find("manualCardID");
+            GameObject cardTypeObject = GameObject.Find("manualCardType");
+            GameObject playerIDInput = GameObject.Find("manualPlayerID");
+            string cardID = cardIDObject.GetComponent<Text>().text;
+            string cardType = cardTypeObject.GetComponent<Text>().text;
+            string playerId = playerIDInput.GetComponent<Text>().text;
+
+            ushort cardTypeUshort= Convert.ToUInt16(cardType);
+            ushort cardIDUshort = Convert.ToUInt16(cardID);
+            int playerIDint = Convert.ToInt32(playerId);
+
+            Debug.Log("Adding manually card ID: " + cardID + " of type: " + cardType + "for player: " + playerIDint);
+
+            
+
+            // card changed and confirmed, create update
+            CreateUpdateInfo(cardIDUshort, playerIDint, cardTypeUshort, 0, playerIDint);
+            CreateUpdateInfoToMarkArea(playerIDint, cardIDUshort, cardTypeUshort);
         }
 
         /* // saves data setting to file

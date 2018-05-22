@@ -485,7 +485,7 @@ namespace CameraControl
             return false;
         }
 
-        public bool PrepareNextImageInDetection(int skip = 5)
+        public bool PrepareNextImageInDetection(int skip = 3)
         {
             int check = 0;
             while (check < skip+1)
@@ -590,7 +590,10 @@ namespace CameraControl
         public bool InitDataAndDetectionForGame()
         {
             ushort tableID = 0;
-            InitImageDetectionAccessPointDataAndDetectionCaller(pImageDetectionAccessPoint, ref _errorCode, ref tableID);
+            unsafe
+            {
+                InitImageDetectionAccessPointDataAndDetectionCaller(pImageDetectionAccessPoint, ref _errorCode, ref tableID);
+            }
             if (IsErrorOccured())
                 return false;
 

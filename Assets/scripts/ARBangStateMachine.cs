@@ -18,6 +18,7 @@ public class ARBangStateMachine
         // players updates states
         NEW_CARD_HORSE_UPGRADE,
         NEW_CARD_GUN_UPGRADE,
+        CARD_REMOVED,
         NEW_CARD_UNKNOWN
     }
     /// <summary>
@@ -26,8 +27,24 @@ public class ARBangStateMachine
     public enum BangCard
     {
         NONE = 0,
-        BANG,
-        DODGE
+        BANG_A = 1,
+        BANG_B = 2,
+        DODGE_A = 3,
+        DODGE_A_M = 4,
+
+        SILVER = 18,
+        MUSTANG = 19,
+        APPALOOSA = 20,
+        HIDEOUT = 21,
+        DYNAMITE = 22,
+        PRISON = 23,
+        VOLCANIC = 24,
+        SCHOFIELD = 25,
+        REMMINGTON = 26,
+        CARABINE = 27,
+        WINCHESTER = 28,
+
+        UNKNOWN = 199,
     }
     /// <summary>
     /// All supported package which can be defined in common area. It is directly connected to their ID.
@@ -39,19 +56,27 @@ public class ARBangStateMachine
 
     private class PlayerStatus
     {
-        int range = 1;
+        public int range = 1;
+        public BangState PlayerState = BangState.BASE;
     }
 
 
-    private BangState _currentState = BangState.BASE;    
+    private BangState _currentState = BangState.BASE;
     private RingedList<KeyValuePair<int, double>> _lastPlayers = new RingedList<KeyValuePair<int, double>>(6);
-    private List<KeyValuePair<int, PlayerStatus>> _playersStatusesHolder = new List<KeyValuePair<int, PlayerStatus>>();
+    private Dictionary<int, PlayerStatus> _playersStatusHolder = new Dictionary<int, PlayerStatus>();
 
 
     public void InitARBangStateMachine(int numOfPlayers)
     {
         _currentState = BangState.BASE;
-        _playersStatusesHolder.Clear();
+        _playersStatusHolder.Clear();
+        for(var i = 0; i < numOfPlayers; ++i)
+        {
+            PlayerStatus plStat = new PlayerStatus();
+            plStat.PlayerState = BangState.BASE;
+            plStat.range = 1;
+            _playersStatusHolder.Add(i + 1, plStat);
+        }
     }
 
     public void AddActivePlayer(int plID, double intensity)
@@ -61,8 +86,12 @@ public class ARBangStateMachine
 
     public int GetLastActivePlayer()
     {
-        KeyValuePair<int, double> last = _lastPlayers.GetLast();
-        return last.Key;
+        if(_lastPlayers.Count  > 0)
+        {
+            KeyValuePair<int, double> last = _lastPlayers.GetLast();
+            return last.Key;
+        }
+        return -1;
     }
 
 
@@ -76,15 +105,30 @@ public class ARBangStateMachine
     /// <returns>Returns true if the change have visual consequencies, otherwise return false.</returns>
     public bool ApplyNewPlayerData(int playerID, BangCard newCardID, BangCard oldCardID)
     {
+        PlayerStatus plStat = _playersStatusHolder[playerID];
+
         if(newCardID == BangCard.NONE)
         {
             // card removed
         }
-        else
+        else if (newCardID == BangCard.UNKNOWN)
         {
-            // new card appeared
+            plStat.PlayerState = BangState.NEW_CARD_UNKNOWN;
         }
-
+        else if (newCardID == BangCard.MUSTANG ||
+            newCardID == BangCard.SILVER ||
+            newCardID == BangCard.APPALOOSA)
+        {
+            plStat.PlayerState = BangState.NEW_CARD_HORSE_UPGRADE;
+        }
+        else if (newCardID == BangCard.VOLCANIC ||
+           newCardID == BangCard.SCHOFIELD ||
+           newCardID == BangCard.REMMINGTON ||
+           newCardID == BangCard.CARABINE ||
+           newCardID == BangCard.WINCHESTER )
+        {
+            plStat.PlayerState = BangState.NEW_CARD_GUN_UPGRADE;
+        }
         return true;
     }
     /// <summary>
@@ -96,7 +140,20 @@ public class ARBangStateMachine
     /// <returns>Returns true if the change have visual consequencies, otherwise return false.</returns>
     public bool ApplyNewCommonData(int playerID, BangCard cardID, CommonAreaPackages packageID)
     {
-
+        if(cardID == BangCard.UNKNOWN)
+        {
+            _currentState = BangState.NEW_CARD_UNKNOWN;
+        }
+        else if (cardID == BangCard.BANG_A ||
+           cardID == BangCard.BANG_B)
+        {
+            _currentState = BangState.BANG_PLAYED;
+        }
+        else if (cardID == BangCard.DODGE_A ||
+           cardID == BangCard.DODGE_A_M)
+        {
+            _currentState = BangState.DODGE_PLAYED;
+        }
         return true;
     }
 
@@ -110,12 +167,24 @@ public class ARBangStateMachine
 
     public BangState GetState()
     {
-        return BangState.UNKNOWN;
+        BangState toRet = BangState.BASE;
+        if (_currentState == BangState.NEW_CARD_UNKNOWN)
+        {
+            toRet = _currentState;
+            _currentState = BangState.BASE;
+        }
+        return toRet;
     }
 
     public BangState GetStateForPlayer(int plID)
     {
-        return BangState.NEW_CARD_UNKNOWN;
+        BangState toRet = BangState.BASE;
+        if (_playersStatusHolder[plID].PlayerState != BangState.BASE)
+        {
+            toRet = _playersStatusHolder[plID].PlayerState;
+            _playersStatusHolder[plID].PlayerState = BangState.BASE;
+        }
+        return toRet;
     }
 }
 
