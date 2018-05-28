@@ -26,60 +26,60 @@ namespace CameraControl
         public static CameraControl cameraControl;
 
         // dll access
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern IntPtr CreateImageDetectionAccessPoint();
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void DestroyImageDetectionAccessPoint(IntPtr pImageDetectionAccessPoint);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void InitImageDetectionAccessPointCameraCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort cameraID);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void InitImageDetectionAccessPointDataAndDetectionCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort configTableID);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void GetVideoResolutionCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort width, ref ushort height);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void GetNumberOfAllAvailableDevicesCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort numberOfAvailDevices);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void PrepareNextFrameCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void GetCurrentFrameSizeCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort cols, ref ushort rows, ref ushort channels);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void GetCurrentFrameDataCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort cols, ref ushort rows, ref ushort channels, IntPtr dataPointer);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void IsPlayerActiveByIDCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort playerID, ref double intensity);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void IsCardChangedByIDCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort positionID, ref ushort objectID);
 
         // camera calibration IDAP        
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void SetFlipHorizontallyCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void SetFlipVerticallyCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void AddImageWithChessboardCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void IsEnoughDataCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort isEnough);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void SetSquareDimensionCameraCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort dimension);  // dimension set in nm
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void SetChessboardDimensionCameraCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort width, ref ushort height);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void SaveCameraCalibCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void LoadCameraCalibCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);  // error code hold the success if any
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void CalibrateCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void GetCalibrationCameraImageCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort imageNumber, ref ushort width, ref ushort height, ref ushort channels, IntPtr data);
 
         // table calibration IDAP
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void DetectMarkersCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void CalculateTableCalibrationResultCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode);
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void SetChessboardDimensionProjectionCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort chessboardWidth, ref ushort chessboardHeight);
 
-        [DllImport("ImageProcessingForARCardGames")]
+        [DllImport("ImageDetectionAccessPoint")]
         static public extern void GetProjectionTranformMatrixCaller(IntPtr pImageDetectionAccessPoint, ref ushort errorCode, ref ushort dataSizeAllocated, ref double cmInPixels, double[] dataPointer, double[] tableSizeData);
 
 

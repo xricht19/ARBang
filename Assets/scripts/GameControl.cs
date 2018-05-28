@@ -64,7 +64,6 @@ namespace GameControl
             public bool wasMarked = false;
         }
 
-
         // game data and state hoder
         public static GameControl gameControl = null;
         // game config -> from XML
@@ -174,6 +173,12 @@ namespace GameControl
         /// </summary>
         private void Start()
         {
+            // ---------------------------------------------
+            // For testing without detection.
+
+
+            // ---------------------------------------------
+
             bool success = camC.InitDataAndDetectionForGame();
             if (success)
                 _loadingSuccessfull = true;
@@ -211,16 +216,16 @@ namespace GameControl
         /// </summary>
         private void Update()
         {
-            if ((camC.IsCameraCalibrated() && camC.IsCameraChosen() && camC.IsTableCalibrated() && camC.IsProjectorCalibrated())
+            /*f ((camC.IsCameraCalibrated() && camC.IsCameraChosen() && camC.IsTableCalibrated() && camC.IsProjectorCalibrated())
                 && IsGameStarted() && LoadingSuccessfull())
             {
                 // capture next image by camera
-                camC.PrepareNextImageInDetectionOne();
+                camC.PrepareNextImageInDetectionOne();*/
 
                 // check which players are currently active
                 foreach (int plID in _playersIDs)
                 {
-                    double intensity = camC.IsPlayerActive(plID);
+                    double intensity = 0.0;// camC.IsPlayerActive(plID);
                     if (intensity > 0.0)
                     {
                         if(plID == 0 )
@@ -232,7 +237,6 @@ namespace GameControl
                             _currentlyMostActivePlayer = new KeyValuePair<int, double>(plID, intensity);
                         }
                         _currentlyActivePlayers.Add(plID, intensity);
-                        //Debug.Log("Player " + plID + " is active.");
                     }
                 }
                 if (_currentlyMostActivePlayer.Key > 0)
@@ -242,7 +246,7 @@ namespace GameControl
                     {
                         _bangStateMachine.AddActivePlayer(_currentlyMostActivePlayer.Key, _currentlyMostActivePlayer.Value);
                     }
-                    //Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key);
+                    //Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key + "; Saved players: " + _bangStateMachine.GetNumberOfPlayersSaved());
                     // generate update config to mark his area
                     UpdateInfo up = new UpdateInfo
                     {
@@ -291,14 +295,14 @@ namespace GameControl
                 }
                 //Debug.Log("Cards to check: " + cardsToCheck.Count);
                 // get new frame, the player activity covered table in previous one
-                camC.PrepareNextImageInDetection();
+                //camC.PrepareNextImageInDetection();
                 List<ushort> itemsToRemove = new List<ushort>();
                 // check card places which need to be checked
                 foreach (KeyValuePair<ushort, CardChecker> cardPosToCheck in cardsToCheck)
                 {
                     CardChecker currentChecker = cardPosToCheck.Value;
                     ushort cardTypeNew = 0;
-                    camC.IsCardChanged(cardPosToCheck.Key, ref cardTypeNew);
+                    //camC.IsCardChanged(cardPosToCheck.Key, ref cardTypeNew);
                     //Debug.Log("Checking id: " + cardPosToCheck.Key + ", new id: " + cardTypeNew);
                     // some card was detected show, bounding box, the type of card is not certain yet
                     if(cardTypeNew != (ushort)ARBangStateMachine.BangCard.NONE && !currentChecker.wasMarked)
@@ -365,7 +369,7 @@ namespace GameControl
                 _currentlyActivePlayers.Clear();
                 _currentlyMostActivePlayer = new KeyValuePair<int, double>(-1, 0.0);
                 WasCentralAreaActive = false;
-            }
+            //}
         }
 
         private void CreateUpdateInfo(ushort cardId, int playerId, ushort newDetectedCardType, ushort oldCardType, int mostActivePlayer)
@@ -382,7 +386,7 @@ namespace GameControl
                     UpdateInfo curUpInfo = new UpdateInfo();
                     curUpInfo.CardId = cardId;
                     curUpInfo.PlayerID = mostActivePlayer;
-                    curUpInfo.PreviousPlayerID = _bangStateMachine.GetLastActivePlayerID();
+                    curUpInfo.PreviousPlayerID = _bangStateMachine.GetLastActivePlayer();
                     curUpInfo.State = _bangStateMachine.GetState();
                     curUpInfo.effect = DrawEffectControl.EffectsTypes.NONE;
                     curUpInfo.Priority = UpdatePriority.COMMON_AREA;
@@ -461,10 +465,17 @@ namespace GameControl
 
             Debug.Log("Adding manually card ID: " + cardID + " of type: " + cardType + "for player: " + playerIDint);
 
-            
-
-            // card changed and confirmed, create update
-            CreateUpdateInfo(cardIDUshort, playerIDint, cardTypeUshort, 0, playerIDint);
+            if(cardIDUshort == 0)
+            {                
+                CreateUpdateInfo(cardIDUshort, 0, cardTypeUshort, 0, playerIDint);
+                // add active player if common area
+                _bangStateMachine.AddActivePlayer(playerIDint, 1.0);
+            }
+            else
+            {
+                CreateUpdateInfo(cardIDUshort, playerIDint, cardTypeUshort, 0, playerIDint);
+            }
+            // card changed and confirmed, create update            
             CreateUpdateInfoToMarkArea(playerIDint, cardIDUshort, cardTypeUshort);
         }
 

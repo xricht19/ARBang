@@ -1,4 +1,6 @@
-﻿public class RingedList<T> {
+﻿using UnityEngine;
+
+public class RingedList<T> {
 
     int _size;
     T[] _ringedList;
@@ -34,13 +36,13 @@
     public void Add(T item)
     {
         if (isFull)
-            _ringedList[_i0++] = item;
+            _ringedList[(_i0++ % _size)] = item;
         else
             _ringedList[_count++] = item;
     }
     // return last element added to ringed list
     public T GetLast()
     {
-        return _ringedList[getIndex(Count)];
+        return _ringedList[getIndex(Count-1)];
     }
 }

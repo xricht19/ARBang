@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// Class containing the implementation of Bang game states, which are supported by Augmented reality Bang.
@@ -31,6 +32,8 @@ public class ARBangStateMachine
         BANG_B = 2,
         DODGE_A = 3,
         DODGE_A_M = 4,
+        DODGE_B = 5,
+        DODGE_B_M = 6,
 
         SILVER = 18,
         MUSTANG = 19,
@@ -62,7 +65,7 @@ public class ARBangStateMachine
 
 
     private BangState _currentState = BangState.BASE;
-    private RingedList<KeyValuePair<int, double>> _lastPlayers = new RingedList<KeyValuePair<int, double>>(6);
+    private RingedList<int> _lastPlayers = new RingedList<int>(6);
     private Dictionary<int, PlayerStatus> _playersStatusHolder = new Dictionary<int, PlayerStatus>();
 
 
@@ -81,17 +84,22 @@ public class ARBangStateMachine
 
     public void AddActivePlayer(int plID, double intensity)
     {
-        _lastPlayers.Add(new KeyValuePair<int, double>(plID, intensity));
+        Debug.Log("Adding active player: " + plID);
+        _lastPlayers.Add(plID);
     }
 
     public int GetLastActivePlayer()
     {
         if(_lastPlayers.Count  > 0)
         {
-            KeyValuePair<int, double> last = _lastPlayers.GetLast();
-            return last.Key;
+            return _lastPlayers.GetLast();
         }
         return -1;
+    }
+
+    public int GetNumberOfPlayersSaved()
+    {
+        return _lastPlayers.Count;
     }
 
 
@@ -149,28 +157,23 @@ public class ARBangStateMachine
         {
             _currentState = BangState.BANG_PLAYED;
         }
-        else if (cardID == BangCard.DODGE_A ||
-           cardID == BangCard.DODGE_A_M)
+        else if ((cardID == BangCard.DODGE_A ||
+           cardID == BangCard.DODGE_A_M ||
+           cardID == BangCard.DODGE_B ||
+           cardID == BangCard.DODGE_B_M) &&
+           _currentState == BangState.BANG_PLAYED)
         {
             _currentState = BangState.DODGE_PLAYED;
         }
         return true;
     }
 
-    public int GetLastActivePlayerID()
-    {
-        if (_lastPlayers.Count > 0)
-            return _lastPlayers.GetLast().Key;
-        else
-            return -1;
-    }
-
     public BangState GetState()
     {
-        BangState toRet = BangState.BASE;
-        if (_currentState == BangState.NEW_CARD_UNKNOWN)
+        BangState toRet = _currentState;
+        if (_currentState == BangState.NEW_CARD_UNKNOWN ||
+            _currentState == BangState.DODGE_PLAYED)
         {
-            toRet = _currentState;
             _currentState = BangState.BASE;
         }
         return toRet;

@@ -55,6 +55,9 @@ public class DrawEffectControl : MonoBehaviour {
     {
         public static float BORDER_MARKED = .5f;
         public static float BORDER_MARKED_NON_CONFIRMED = .2f;
+        public static float HORSE = 1.0f;
+        public static float GUN = 1.0f;
+        public static float DODGE = 1.0f;
     }
 
     private enum RectangelParts
@@ -181,10 +184,10 @@ public class DrawEffectControl : MonoBehaviour {
         OffsetX = camC.GetOffsetInX();
         OffsetY = camC.GetOffsetInY();
         // copy the data about table to local class variable
-        _tableX = -(float)camC.GetTableCornersById(2) / 2f;
-        _tableY = -(float)camC.GetTableCornersById(3) / 2f;
-        _tableWidth = (float)camC.GetTableCornersById(2);
-        _tableHeight = (float)camC.GetTableCornersById(3);
+        _tableX = 0;// -(float)camC.GetTableCornersById(2) / 2f;
+        _tableY = 0;// -(float)camC.GetTableCornersById(3) / 2f;
+        _tableWidth = 450;// (float)camC.GetTableCornersById(2);
+        _tableHeight = 250;// (float)camC.GetTableCornersById(3);
 
     }
 
@@ -225,6 +228,11 @@ public class DrawEffectControl : MonoBehaviour {
             if (!item.Value.AreaBlinking && item.Value.AreaMarked && (Time.time - item.Value.LastChanged > EffectsDuration.BORDER_MARKED))
             {
                 ChangeBorderColor(item.Value, PlayersColors.Universal);
+            }
+            // check if existing effect should reset
+            if(item.Value._effectType != item.Value._defaultEffectType)
+            {
+                CheckIfResetEffect(item);
             }
         }
 
@@ -267,6 +275,7 @@ public class DrawEffectControl : MonoBehaviour {
                     // set effect according to a state
                     item.effect = GetEffectByState(item.State);
                 }
+                Debug.Log("State: " + item.State);
                 switch (item.effect)
                 {
                     case EffectsTypes.BORDER:
@@ -284,11 +293,15 @@ public class DrawEffectControl : MonoBehaviour {
                     case EffectsTypes.HORSE:
                         DrawInEffectAreaOne(item, horseSprite);
                         break;
+                    case EffectsTypes.GUN:
+                        DrawInEffectAreaOne(item, gunSprite);
+                        break;
                     case EffectsTypes.BANG:
-                        DrawInEffectAreaOne(item, smiley);
+                        DrawInEffectAreaOne(item, gunSprite);
                         break;
                     case EffectsTypes.DODGE:
-                        DrawInEffectAreaOne(item, badSmiley);
+                        DrawInEffectAreaOne(item, smiley);
+                        DrawInEffectAreaOne(item, badSmiley, false);
                         break;
                     case EffectsTypes.NONE:
                     default:
@@ -307,15 +320,29 @@ public class DrawEffectControl : MonoBehaviour {
 
     }
 
-    private void DrawInEffectAreaOne(GameControl.UpdateInfo info, Sprite toDraw)
+    private void DrawInEffectAreaOne(GameControl.UpdateInfo info, Sprite toDraw, bool currentPlayer = true)
     {
-        EffectArea current = effectAreas[info.PlayerID];
+        EffectArea current;
+        int currentPlID;
+        if (currentPlayer)
+        {
+            current = effectAreas[info.PlayerID];
+            currentPlID = info.PlayerID;
+        }
+        else
+        {
+            current = effectAreas[info.PreviousPlayerID];
+            currentPlID = info.PreviousPlayerID;
+        }
+        ResetEffect(current);
         Rect area = current.GetArea();
         current.spriteRendererHolder = new GameObject();
+        current._effectType = info.effect;
+        current.lastChangeTime = Time.time;
         // set position and size
         current.spriteRendererHolder.transform.SetParent(this.transform);
         current.spriteRendererHolder.transform.position = new Vector3(area.x+OffsetX+(area.width/2), area.y + OffsetY + (area.height / 2), 0f);
-        current.spriteRendererHolder.transform.Rotate(new Vector3(0, 0, PlayersRotations.GetRotationOfPlayer(info.PlayerID)));
+        current.spriteRendererHolder.transform.Rotate(new Vector3(0, 0, PlayersRotations.GetRotationOfPlayer(currentPlID)));
         current.spriteRendererHolder.transform.localScale = new Vector3(35, 35, 1f);
 
         current.spriteRendererHolder.AddComponent<SpriteRenderer>();
@@ -323,6 +350,37 @@ public class DrawEffectControl : MonoBehaviour {
 
         sr.sprite = toDraw;
         current.spriteRendererHolder.SetActive(true);
+    }
+
+    private void CheckIfResetEffect(KeyValuePair<int, EffectArea> item)
+    {
+        switch(item.Value._effectType)
+        {
+            case EffectsTypes.GUN:
+                if((Time.time - item.Value.lastChangeTime) > EffectsDuration.GUN)
+                {
+                    ResetEffect(item.Value);
+                }
+                break;
+            case EffectsTypes.HORSE:
+                if ((Time.time - item.Value.lastChangeTime) > EffectsDuration.HORSE)
+                {
+                    ResetEffect(item.Value);
+                }
+                break;
+            case EffectsTypes.DODGE:
+                if ((Time.time - item.Value.lastChangeTime) > EffectsDuration.DODGE)
+                {
+                    ResetEffect(item.Value);
+                }
+                break;
+        }
+    }
+
+    private void ResetEffect(EffectArea efArea)
+    {
+        if(efArea.spriteRendererHolder != null)
+            efArea.spriteRendererHolder.GetComponent<SpriteRenderer>().sprite = null;
     }
 
     private void SwitchBorderColor(BaseArea area)
@@ -628,6 +686,6 @@ public class DrawEffectControl : MonoBehaviour {
     private float mmToPixels(float val)
     {
         //Debug.Log("mmInPixel: " + val + "->" + val * camC.GetMMInPixels());
-        return val * camC.GetMMInPixels();
+        return 25f;// val * camC.GetMMInPixels();
     }
 }
