@@ -184,10 +184,10 @@ public class DrawEffectControl : MonoBehaviour {
         OffsetX = camC.GetOffsetInX();
         OffsetY = camC.GetOffsetInY();
         // copy the data about table to local class variable
-        _tableX = 0;// -(float)camC.GetTableCornersById(2) / 2f;
-        _tableY = 0;// -(float)camC.GetTableCornersById(3) / 2f;
-        _tableWidth = 450;// (float)camC.GetTableCornersById(2);
-        _tableHeight = 250;// (float)camC.GetTableCornersById(3);
+        _tableX = -(float)camC.GetTableCornersById(2) / 2f;
+        _tableY = -(float)camC.GetTableCornersById(3) / 2f;
+        _tableWidth = (float)camC.GetTableCornersById(2);
+        _tableHeight = (float)camC.GetTableCornersById(3);
 
     }
 
@@ -686,6 +686,6 @@ public class DrawEffectControl : MonoBehaviour {
     private float mmToPixels(float val)
     {
         //Debug.Log("mmInPixel: " + val + "->" + val * camC.GetMMInPixels());
-        return 25f;// val * camC.GetMMInPixels();
+        return val * camC.GetMMInPixels();
     }
 }

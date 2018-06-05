@@ -216,16 +216,16 @@ namespace GameControl
         /// </summary>
         private void Update()
         {
-            /*f ((camC.IsCameraCalibrated() && camC.IsCameraChosen() && camC.IsTableCalibrated() && camC.IsProjectorCalibrated())
+            if ((camC.IsCameraCalibrated() && camC.IsCameraChosen() && camC.IsTableCalibrated() && camC.IsProjectorCalibrated())
                 && IsGameStarted() && LoadingSuccessfull())
             {
                 // capture next image by camera
-                camC.PrepareNextImageInDetectionOne();*/
+                camC.PrepareNextImageInDetectionOne();
 
                 // check which players are currently active
                 foreach (int plID in _playersIDs)
                 {
-                    double intensity = 0.0;// camC.IsPlayerActive(plID);
+                    double intensity = camC.IsPlayerActive(plID);
                     if (intensity > 0.0)
                     {
                         if(plID == 0 )
@@ -244,6 +244,7 @@ namespace GameControl
                     // save active player if messed up with central area
                     if (WasCentralAreaActive)
                     {
+                        Debug.Log("CENTRAL AREA ACTIVE!");
                         _bangStateMachine.AddActivePlayer(_currentlyMostActivePlayer.Key, _currentlyMostActivePlayer.Value);
                     }
                     //Debug.Log("Most active player is ID: " + _currentlyMostActivePlayer.Key + "; Saved players: " + _bangStateMachine.GetNumberOfPlayersSaved());
@@ -295,14 +296,14 @@ namespace GameControl
                 }
                 //Debug.Log("Cards to check: " + cardsToCheck.Count);
                 // get new frame, the player activity covered table in previous one
-                //camC.PrepareNextImageInDetection();
+                camC.PrepareNextImageInDetection();
                 List<ushort> itemsToRemove = new List<ushort>();
                 // check card places which need to be checked
                 foreach (KeyValuePair<ushort, CardChecker> cardPosToCheck in cardsToCheck)
                 {
                     CardChecker currentChecker = cardPosToCheck.Value;
                     ushort cardTypeNew = 0;
-                    //camC.IsCardChanged(cardPosToCheck.Key, ref cardTypeNew);
+                    camC.IsCardChanged(cardPosToCheck.Key, ref cardTypeNew);
                     //Debug.Log("Checking id: " + cardPosToCheck.Key + ", new id: " + cardTypeNew);
                     // some card was detected show, bounding box, the type of card is not certain yet
                     if(cardTypeNew != (ushort)ARBangStateMachine.BangCard.NONE && !currentChecker.wasMarked)
@@ -369,7 +370,7 @@ namespace GameControl
                 _currentlyActivePlayers.Clear();
                 _currentlyMostActivePlayer = new KeyValuePair<int, double>(-1, 0.0);
                 WasCentralAreaActive = false;
-            //}
+            }
         }
 
         private void CreateUpdateInfo(ushort cardId, int playerId, ushort newDetectedCardType, ushort oldCardType, int mostActivePlayer)
